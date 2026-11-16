@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/andreydani/calc-rtd/main/assets/logo.png" alt="calc-rtd logo" width="128">
+</p>
+
 # calc-rtd
 
 **Use Excel RTD (RealTimeData) servers from LibreOffice Calc**, with the formula you already know:
@@ -12,7 +16,8 @@ Calc has no such function. calc-rtd adds it: a Calc extension provides `RTD()`, 
 Windows bridge loads the vendor's RTD server and plays Excel's part of the conversation.
 
 > **Status: experimental (0.1).** Verified end to end on Windows with LibreOffice and a
-> third-party .NET RTD server, and on Linux with the built-in simulated source.
+> third-party .NET RTD server. Every commit is tested against LibreOffice and a sample RTD
+> server, in 32 and 64 bits.
 
 calc-rtd is an independent project. It is not affiliated with or endorsed by Microsoft or
 The Document Foundation. It contains no Microsoft code: it implements the client side of the

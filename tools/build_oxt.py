@@ -12,6 +12,7 @@ the INTERFACE table below in sync with it.
 from __future__ import annotations
 
 import argparse
+import re
 import struct
 import sys
 import zipfile
@@ -38,6 +39,12 @@ INTERFACE = {
         ]),
     ],
 }
+
+
+def project_version():
+    """The version lives in one place: src/calc_rtd_bridge/__init__.py."""
+    text = (ROOT / "src" / "calc_rtd_bridge" / "__init__.py").read_text(encoding="utf-8")
+    return re.search(r'__version__ = "([^"]+)"', text).group(1)
 
 
 def _u32(value):
@@ -109,7 +116,11 @@ def main(argv=None):
                         help="standalone bridge executable to bundle (bridge/calc-rtd-bridge.exe); "
                              "the extension then needs no Python installation")
     parser.add_argument("--output", type=Path, default=OUTPUT)
+    parser.add_argument("--print-version", action="store_true", help="print the project version and exit")
     args = parser.parse_args(argv)
+    if args.print_version:
+        print(project_version())
+        return 0
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     rdb = build_rdb({INTERFACE_NAME: INTERFACE})
@@ -117,11 +128,16 @@ def main(argv=None):
     with zipfile.ZipFile(args.output, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("XCalcRtd.rdb", rdb)
         for path in files:
-            archive.write(path, path.relative_to(SOURCE).as_posix())
+            name = path.relative_to(SOURCE).as_posix()
+            if name == "description.xml":
+                text = path.read_text(encoding="utf-8").replace("@VERSION@", project_version())
+                archive.writestr(name, text)
+            else:
+                archive.write(path, name)
         archive.write(ROOT / "LICENSE", "LICENSE.txt")
         if args.bridge_exe:
             archive.write(args.bridge_exe, "bridge/calc-rtd-bridge.exe")
-    print("wrote %s (%d bytes%s)" % (args.output, args.output.stat().st_size,
+    print("wrote %s, version %s (%d bytes%s)" % (args.output, project_version(), args.output.stat().st_size,
                                      ", with bundled bridge" if args.bridge_exe else ""))
     return 0
 

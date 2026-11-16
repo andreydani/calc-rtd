@@ -2,11 +2,17 @@
 <description xmlns="http://openoffice.org/extensions/description/2006"
              xmlns:xlink="http://www.w3.org/1999/xlink">
   <identifier value="com.github.calcrtd"/>
-  <version value="0.1.0"/>
+  <version value="@VERSION@"/>
   <display-name>
     <name lang="en">Calc RTD - Excel RealTimeData for Calc</name>
     <name lang="pt">Calc RTD - RealTimeData do Excel no Calc</name>
   </display-name>
+  <publisher>
+    <name xlink:href="https://github.com/andreydani/calc-rtd" lang="en">calc-rtd project</name>
+  </publisher>
+  <icon>
+    <default xlink:href="icon.png"/>
+  </icon>
   <dependencies>
     <OpenOffice.org-minimal-version value="4.0" name="LibreOffice 4.0"/>
   </dependencies>

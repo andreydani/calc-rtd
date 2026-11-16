@@ -61,6 +61,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+      - name: The tag must match the version in the code
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version="$(python tools/build_oxt.py --print-version)"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match version $version in src/calc_rtd_bridge/__init__.py"
+            exit 1
+          fi
       - run: python -m pip install build
       - run: python -m build --outdir pypi-dist
       - run: python tools/build_oxt.py --output oxt/calc-rtd.oxt
