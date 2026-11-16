@@ -114,6 +114,18 @@ formulas use `--file formulas.txt` (one per line) or `--progid X --topics A B`. 
 
 `calc-rtd-bridge watch ...` does the same through the socket of a running bridge.
 
+### Sample RTD server
+
+`samples/rtd-server` contains a minimal RTD server in C# (ProgID `CalcRtd.Sample`) that needs
+only the .NET Framework included with Windows. From an elevated PowerShell:
+
+```powershell
+.\samples\rtd-server\build.ps1 -Arch x64      # add -Unregister to remove it
+calc-rtd-bridge monitor "=RTD(CalcRtd.Sample;;counter)" --seconds 5
+```
+
+The CI uses it to test the COM layer, in 32 and 64 bits, on every commit.
+
 ## Known limitations
 
 - **Windows only** for real servers: RTD is a COM technology.
@@ -135,7 +147,7 @@ formulas use `--file formulas.txt` (one per line) or `--progid X --topics A B`. 
 
 ```bash
 pip install -e . pytest
-pytest                                    # bridge, protocol, RTD host with a fake driver
+pytest                                    # bridge, protocol, RTD host (COM tests need the sample server)
 python tools/build_oxt.py                 # builds dist/calc-rtd.oxt (no LibreOffice SDK needed)
 unopkg add -f dist/calc-rtd.oxt
 python tests/integration_libreoffice.py   # end to end against a headless LibreOffice
