@@ -7,7 +7,7 @@ import pytest
 
 from calc_rtd_bridge.client import BridgeClient
 from calc_rtd_bridge.core import Engine, Hub
-from calc_rtd_bridge.protocol import parse_formula, to_wire
+from calc_rtd_bridge.protocol import load_or_create_token, parse_formula, to_wire
 from calc_rtd_bridge.rtd_host import RtdHostBackend, pairs_from_refresh
 from calc_rtd_bridge.server import BridgeServer
 from calc_rtd_bridge.sim import SimBackend
@@ -194,6 +194,34 @@ def test_tcp_round_trip():
         server.close()
         stop.set()
         thread.join(2)
+
+
+def test_token_file(tmp_path):
+    path = str(tmp_path / "nested" / "token")
+    token = load_or_create_token(path)
+    assert len(token) == 64 and load_or_create_token(path) == token
+
+
+def test_tcp_requires_token():
+    hub = Hub()
+    server = BridgeServer(hub, "127.0.0.1", 0, com_available=False, token="s3cret")
+    try:
+        with BridgeClient(port=server.address[1], token="wrong") as intruder:
+            assert intruder.hello["auth"] is True
+            intruder.subscribe("calcrtd.sim", "", ["clock"])
+            assert intruder.read(timeout=2)["message"] == "authentication failed"
+            with pytest.raises((EOFError, OSError)):
+                intruder.read(timeout=2)
+        assert hub.topic_count() == 0
+        assert server.idle_seconds() > 0  # a rejected client never counts as connected
+        with BridgeClient(port=server.address[1], token="s3cret") as client:
+            client.subscribe("calcrtd.sim", "", ["echo", "x"])
+            deadline = time.monotonic() + 2
+            while hub.topic_count() == 0 and time.monotonic() < deadline:
+                time.sleep(0.02)
+            assert hub.topic_count() == 1 and server.idle_seconds() == 0.0
+    finally:
+        server.close()
 
 
 # -- extension type library ---------------------------------------------------

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import hmac
 import logging
 import queue
 import socket
 import threading
+import time
 
 from . import __version__
 from .protocol import MAX_LINE, decode, encode
@@ -14,10 +16,16 @@ log = logging.getLogger("calc_rtd.server")
 
 
 class ClientConnection:
-    def __init__(self, sock, address, hub, hello):
+    def __init__(self, sock, address, hub, hello, token=None, on_ready=None, on_close=None):
         self._sock = sock
         self.address = address
         self._hub = hub
+        self._token = token
+        self._authenticated = token is None
+        self._on_ready = on_ready
+        self._on_close = on_close
+        if self._authenticated and on_ready is not None:
+            on_ready(self)
         self._out = queue.Queue(maxsize=10000)
         self._closed = threading.Event()
         self.send(hello)
@@ -69,7 +77,18 @@ class ClientConnection:
         try:
             message = decode(line)
             op = message["op"]
-            if op == "subscribe":
+            if not self._authenticated:
+                supplied = str(message.get("token", "")) if op == "auth" else ""
+                if not hmac.compare_digest(supplied.encode(), self._token.encode()):
+                    log.warning("client %s failed authentication", self.address)
+                    self._reject()
+                    return
+                self._authenticated = True
+                if self._on_ready is not None:
+                    self._on_ready(self)
+            elif op == "auth":
+                pass
+            elif op == "subscribe":
                 topics = message.get("topics") or []
                 if not isinstance(topics, list):
                     raise ValueError("'topics' must be a list")
@@ -84,11 +103,20 @@ class ClientConnection:
         except (KeyError, TypeError, ValueError) as exc:
             self.send({"op": "error", "id": None, "message": "bad request: %s" % exc})
 
+    def _reject(self):
+        try:
+            self._sock.sendall(encode({"op": "error", "id": None, "message": "authentication failed"}))
+        except OSError:
+            pass
+        self.close()
+
     def close(self):
         if self._closed.is_set():
             return
         self._closed.set()
         self._hub.drop_client(self)
+        if self._on_close is not None:
+            self._on_close(self)
         try:
             self._sock.close()
         except OSError:
@@ -97,9 +125,14 @@ class ClientConnection:
 
 
 class BridgeServer:
-    def __init__(self, hub, host, port, com_available):
+    def __init__(self, hub, host, port, com_available, token=None):
         self._hub = hub
-        self._hello = {"op": "hello", "version": __version__, "com": bool(com_available)}
+        self._token = token
+        self._hello = {"op": "hello", "version": __version__, "com": bool(com_available),
+                       "auth": token is not None}
+        self._clients = set()
+        self._lock = threading.Lock()
+        self.idle_since = time.monotonic()
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._sock.bind((host, port))
@@ -116,7 +149,25 @@ class BridgeServer:
                 break
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             log.info("client %s connected", address)
-            ClientConnection(sock, address, self._hub, self._hello)
+            ClientConnection(sock, address, self._hub, self._hello, self._token,
+                             self._remember, self._forget)
+
+    def _remember(self, client):
+        # Only authenticated clients keep an auto-started bridge alive.
+        with self._lock:
+            self.idle_since = None
+            self._clients.add(client)
+
+    def _forget(self, client):
+        with self._lock:
+            self._clients.discard(client)
+            if not self._clients:
+                self.idle_since = time.monotonic()
+
+    def idle_seconds(self):
+        """Seconds without any connected client (0 while someone is connected)."""
+        with self._lock:
+            return 0.0 if self.idle_since is None else time.monotonic() - self.idle_since
 
     def close(self):
         self._stopped = True

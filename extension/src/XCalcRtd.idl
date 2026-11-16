@@ -16,6 +16,12 @@ interface XCalcRtd
         [in] string progId,
         [in] any server,
         [in] sequence< any > topics );
+
+    /** Same function under the name Excel puts on the clipboard: _xlfn.RTD */
+    com::sun::star::sheet::XVolatileResult xlfnRtd(
+        [in] string progId,
+        [in] any server,
+        [in] sequence< any > topics );
 };
 
 }; }; };

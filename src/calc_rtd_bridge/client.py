@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import socket
 
-from .protocol import DEFAULT_HOST, DEFAULT_PORT, decode, encode
+from .protocol import DEFAULT_HOST, DEFAULT_PORT, decode, encode, load_or_create_token
 
 
 class BridgeClient:
-    def __init__(self, host=DEFAULT_HOST, port=DEFAULT_PORT, timeout=5.0):
+    def __init__(self, host=DEFAULT_HOST, port=DEFAULT_PORT, timeout=5.0, token=None):
         self._sock = socket.create_connection((host, port), timeout=timeout)
         self._buffer = b""
         self._next_id = 1
         self.hello = self.read()
+        if self.hello and self.hello.get("auth"):
+            self._sock.sendall(encode({"op": "auth", "token": token or load_or_create_token()}))
 
     def subscribe(self, progid, server, topics):
         client_id = self._next_id

@@ -7,16 +7,25 @@ update into the matching result object; Calc then recalculates the cells.
 
 Standard library only - it runs on the Python bundled with LibreOffice.
 
+If the bridge is not running the extension starts it, hidden, trying in order:
+the command in CALC_RTD_BRIDGE_CMD, the executable bundled with the extension
+(bridge/calc-rtd-bridge.exe) and ``calc-rtd-bridge`` found on PATH.
+
 Environment variables (optional):
     CALC_RTD_HOST / CALC_RTD_PORT   where the bridge listens (127.0.0.1:47365)
-    CALC_RTD_BRIDGE_CMD             command to start the bridge if it is not running
+    CALC_RTD_BRIDGE_CMD             command line used to start the bridge
+    CALC_RTD_AUTOSTART=0            never start the bridge automatically
+    CALC_RTD_TOKEN_FILE             location of the shared authentication token
 """
 
 import json
 import os
+import secrets
 import shlex
+import shutil
 import socket
 import subprocess
+import sys
 import threading
 import time
 
@@ -33,6 +42,58 @@ HOST = os.environ.get("CALC_RTD_HOST", "127.0.0.1")
 PORT = int(os.environ.get("CALC_RTD_PORT", "47365"))
 OFFLINE = "#RTD: bridge offline"
 RETRY_SECONDS = 2.0
+SPAWN_INTERVAL = 30.0
+IDLE_EXIT_SECONDS = os.environ.get("CALC_RTD_IDLE_EXIT", "60")
+
+
+def _token_path():
+    # Must stay identical to calc_rtd_bridge.protocol.token_path().
+    override = os.environ.get("CALC_RTD_TOKEN_FILE")
+    if override:
+        return override
+    if sys.platform == "win32":
+        base = os.environ.get("APPDATA") or os.path.expanduser("~")
+    else:
+        base = os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config")
+    return os.path.join(base, "calc-rtd", "token")
+
+
+def _load_or_create_token():
+    path = _token_path()
+    for _ in range(2):
+        try:
+            with open(path, encoding="ascii") as handle:
+                token = handle.read().strip()
+            if token:
+                return token
+            os.remove(path)
+        except FileNotFoundError:
+            pass
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        try:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            continue
+        with os.fdopen(fd, "w", encoding="ascii") as handle:
+            token = secrets.token_hex(32)
+            handle.write(token)
+        return token
+    return ""
+
+
+def _bridge_command():
+    """Command line that starts the bridge, or None if there is no way to."""
+    if os.environ.get("CALC_RTD_AUTOSTART", "1") == "0":
+        return None
+    custom = os.environ.get("CALC_RTD_BRIDGE_CMD")
+    if custom:
+        return shlex.split(custom, posix=(os.name != "nt"))
+    here = os.path.dirname(os.path.abspath(globals().get("__file__", "")))
+    bundled = os.path.join(here, "bridge", "calc-rtd-bridge.exe")
+    program = bundled if os.path.isfile(bundled) else shutil.which("calc-rtd-bridge")
+    if not program:
+        return None
+    return [program, "serve", "--port", str(PORT), "--idle-exit", IDLE_EXIT_SECONDS]
 
 
 class RtdResult(unohelper.Base, XVolatileResult):
@@ -95,7 +156,7 @@ class BridgeLink(threading.Thread):
         self._by_id = {}
         self._next_id = 1
         self._sock = None
-        self._spawned = False
+        self._last_spawn = 0.0
 
     # -- called from Calc's thread -----------------------------------------
     def result_for(self, progid, server, topics):
@@ -145,6 +206,8 @@ class BridgeLink(threading.Thread):
             try:
                 sock.settimeout(None)
                 sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                sock.sendall((json.dumps({"op": "auth", "token": _load_or_create_token()})
+                              + "\n").encode("utf-8"))
                 with self._lock:
                     self._sock = sock
                     pending = list(self._by_id.values())
@@ -195,15 +258,18 @@ class BridgeLink(threading.Thread):
                 result.set("#RTD: %s" % message.get("message", "error"))
 
     def _maybe_spawn(self):
-        command = os.environ.get("CALC_RTD_BRIDGE_CMD")
-        if self._spawned or not command:
+        now = time.monotonic()
+        if self._last_spawn and now - self._last_spawn < SPAWN_INTERVAL:
             return
-        self._spawned = True
+        command = _bridge_command()
+        if not command:
+            return
+        self._last_spawn = now
         try:
-            flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-            subprocess.Popen(shlex.split(command, posix=(os.name != "nt")),
-                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL, creationflags=flags)
+            _load_or_create_token()  # make sure the file exists before the bridge reads it
+            subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL, close_fds=True,
+                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         except Exception:
             pass
 
@@ -242,6 +308,10 @@ class CalcRtd(unohelper.Base, XCalcRtd, XServiceInfo):
     def rtd(self, progId, server, topics):
         topics = [_text(topic) for topic in (topics or ())]
         return _get_link().result_for(_text(progId).strip(), _text(server).strip(), topics)
+
+    def xlfnRtd(self, progId, server, topics):
+        """Alias: Excel puts =_xlfn.RTD(...) on the clipboard."""
+        return self.rtd(progId, server, topics)
 
     # XServiceInfo
     def getImplementationName(self):

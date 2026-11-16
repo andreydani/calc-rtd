@@ -11,6 +11,7 @@ the INTERFACE table below in sync with it.
 
 from __future__ import annotations
 
+import argparse
 import struct
 import sys
 import zipfile
@@ -26,6 +27,11 @@ INTERFACE = {
     "methods": [
         # (name, return type, [(direction, name, type)])  direction 0 = in
         ("rtd", "com.sun.star.sheet.XVolatileResult", [
+            (0, "progId", "string"),
+            (0, "server", "any"),
+            (0, "topics", "[]any"),
+        ]),
+        ("xlfnRtd", "com.sun.star.sheet.XVolatileResult", [
             (0, "progId", "string"),
             (0, "server", "any"),
             (0, "topics", "[]any"),
@@ -97,16 +103,26 @@ def build_rdb(entities):
     return bytes(blob)
 
 
-def main():
-    OUTPUT.parent.mkdir(exist_ok=True)
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--bridge-exe", type=Path,
+                        help="standalone bridge executable to bundle (bridge/calc-rtd-bridge.exe); "
+                             "the extension then needs no Python installation")
+    parser.add_argument("--output", type=Path, default=OUTPUT)
+    args = parser.parse_args(argv)
+
+    args.output.parent.mkdir(parents=True, exist_ok=True)
     rdb = build_rdb({INTERFACE_NAME: INTERFACE})
     files = sorted(p for p in SOURCE.rglob("*") if p.is_file() and "__pycache__" not in p.parts)
-    with zipfile.ZipFile(OUTPUT, "w", zipfile.ZIP_DEFLATED) as archive:
+    with zipfile.ZipFile(args.output, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("XCalcRtd.rdb", rdb)
         for path in files:
             archive.write(path, path.relative_to(SOURCE).as_posix())
         archive.write(ROOT / "LICENSE", "LICENSE.txt")
-    print("wrote %s (%d bytes, type library %d bytes)" % (OUTPUT, OUTPUT.stat().st_size, len(rdb)))
+        if args.bridge_exe:
+            archive.write(args.bridge_exe, "bridge/calc-rtd-bridge.exe")
+    print("wrote %s (%d bytes%s)" % (args.output, args.output.stat().st_size,
+                                     ", with bundled bridge" if args.bridge_exe else ""))
     return 0
 
 

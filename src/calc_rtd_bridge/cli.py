@@ -4,16 +4,24 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import threading
 import time
 
 from . import __version__
 from .core import Engine, Hub
-from .protocol import DEFAULT_HOST, DEFAULT_PORT, SIM_PROGID, parse_formula
+from .protocol import DEFAULT_HOST, DEFAULT_PORT, SIM_PROGID, load_or_create_token, parse_formula
 from .sim import SimBackend
 
 log = logging.getLogger("calc_rtd")
+
+
+def _env_port():
+    try:
+        return int(os.environ.get("CALC_RTD_PORT", DEFAULT_PORT))
+    except ValueError:
+        return DEFAULT_PORT
 
 
 def _load_com():
@@ -59,8 +67,9 @@ def cmd_serve(args):
 
     hub = Hub()
     engine, com = _build_engine(hub, args.throttle)
+    token = None if args.no_auth else load_or_create_token()
     try:
-        server = BridgeServer(hub, args.host, args.port, com)
+        server = BridgeServer(hub, args.host, args.port, com, token)
     except OSError as exc:
         log.error("cannot listen on %s:%s (%s). Is another bridge already running?",
                   args.host, args.port, exc)
@@ -69,8 +78,16 @@ def cmd_serve(args):
     print("calc-rtd bridge %s (%d-bit Python) listening on %s:%s - COM %s. Ctrl+C to stop."
           % (__version__, bits, server.address[0], server.address[1],
              "enabled" if com else "disabled"), flush=True)
+    stop = threading.Event()
+    if args.idle_exit:
+        def watchdog():
+            while not stop.wait(1.0):
+                if server.idle_seconds() >= args.idle_exit:
+                    log.info("no clients for %ss; exiting", args.idle_exit)
+                    stop.set()
+        threading.Thread(target=watchdog, name="rtd-idle", daemon=True).start()
     try:
-        _run(engine, threading.Event())
+        _run(engine, stop)
     finally:
         server.close()
     return 0
@@ -181,7 +198,12 @@ def main(argv=None):
 
     serve = sub.add_parser("serve", help="run the bridge for the Calc extension")
     serve.add_argument("--host", default=DEFAULT_HOST)
-    serve.add_argument("--port", type=int, default=DEFAULT_PORT)
+    serve.add_argument("--port", type=int, default=_env_port())
+    serve.add_argument("--idle-exit", type=float, default=0, metavar="SECONDS",
+                       help="exit after this long without any connected client (used when the "
+                            "Calc extension starts the bridge itself)")
+    serve.add_argument("--no-auth", action="store_true",
+                       help="accept any local connection (default: require the per-user token)")
     serve.set_defaults(func=cmd_serve)
 
     monitor = sub.add_parser(
@@ -192,7 +214,7 @@ def main(argv=None):
     watch = sub.add_parser("watch", help="subscribe through a running bridge and print updates")
     _add_topic_args(watch)
     watch.add_argument("--host", default=DEFAULT_HOST)
-    watch.add_argument("--port", type=int, default=DEFAULT_PORT)
+    watch.add_argument("--port", type=int, default=_env_port())
     watch.set_defaults(func=cmd_watch)
 
     args = parser.parse_args(argv)
