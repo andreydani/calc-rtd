@@ -4,7 +4,8 @@
 
 # calc-rtd
 
-**Real-time data from Excel RTD servers, in LibreOffice Calc.** Same formula as in Excel:
+**Real-time data from Excel RTD servers, in LibreOffice Calc.** Same formula as in Excel.
+Website: <https://andreydani.github.io/calc-rtd/> ([Português](https://andreydani.github.io/calc-rtd/pt-br/))
 
 ```
 =RTD("Vendor.ProgID";;"TOPIC1";"TOPIC2")

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>calc-rtd - Excel RTD real-time data in LibreOffice Calc</title>
+<meta name="description" content="Free extension that adds an Excel-compatible RTD() function to LibreOffice Calc, so real-time data from Excel RTD servers updates live in your spreadsheets.">
+<meta property="og:title" content="calc-rtd - Excel RTD real-time data in LibreOffice Calc">
+<meta property="og:description" content="Free extension that adds an Excel-compatible RTD() function to LibreOffice Calc, so real-time data from Excel RTD servers updates live in your spreadsheets.">
+<meta property="og:image" content="https://andreydani.github.io/calc-rtd/logo.png">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="bar">
+      <a class="brand" href="./"><img src="logo.svg" alt="">calc-rtd</a>
+      <nav><a href="#install">Install</a><a href="#how">How it works</a><a href="#notes">Good to know</a><a href="https://github.com/andreydani/calc-rtd">GitHub</a><a class="lang" href="pt-br/">Português</a></nav>
+    </div>
+    <div class="hero">
+      <div>
+        <h1>Real-time data from Excel RTD servers, in <span>LibreOffice Calc</span></h1>
+        <p class="lead">Your data vendor feeds live values to Excel through an RTD formula. calc-rtd makes the same formula work in Calc. Free and open source.</p>
+        <div class="cta"><a class="btn primary" href="https://github.com/andreydani/calc-rtd/releases/latest/download/calc-rtd-win64.oxt">Download for Windows (64-bit)</a><a class="btn ghost" href="https://github.com/andreydani/calc-rtd">View on GitHub</a></div>
+        <small>Free, MIT license. Needs LibreOffice 6.4 or later. <a style="color:#c9d6e0" href="https://github.com/andreydani/calc-rtd/releases/latest">Other downloads</a></small>
+      </div>
+      <div class="sheet" aria-label="Illustration with simulated numbers. These are the test formulas that come with the extension; no real market data is shown.">
+        <div class="fx"><b>fx</b><span class="mono">=RTD("calcrtd.sim";;"walk";"ACME";38.5)</span></div>
+        <table>
+          <tr><th></th><th>A</th><th>B</th></tr>
+          <tr><th>1</th><td><b>Formula</b></td><td class="n"><b>Value</b></td></tr>
+          <tr><th>2</th><td class="mono">=RTD("calcrtd.sim";;"clock")</td><td class="n" data-sim="clock">--:--:--</td></tr>
+          <tr><th>3</th><td class="mono">=RTD("calcrtd.sim";;"counter")</td><td class="n" data-sim="counter">0</td></tr>
+          <tr><th>4</th><td class="mono">=RTD("calcrtd.sim";;"walk";"ACME";38.5)</td><td class="n" data-sim="acme">38.50</td></tr>
+          <tr><th>5</th><td class="mono">=RTD("calcrtd.sim";;"walk";"GLOBEX";112.4)</td><td class="n" data-sim="globex">112.40</td></tr>
+        </table>
+        <div class="cap">Illustration with simulated numbers. These are the test formulas that come with the extension; no real market data is shown.</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="install">
+  <div class="wrap">
+    <h2>Install in three steps</h2>
+    <p class="sub">You need Windows, LibreOffice and the RTD server your data vendor installs. Nothing else.</p>
+    <ol class="steps"><li><h3>Download</h3><p>Get <code>calc-rtd-win64.oxt</code> with the button above.</p></li><li><h3>Add to LibreOffice</h3><p>Open <b>Tools &gt; Extensions</b>, click <b>Add</b> and pick the file.</p></li><li><h3>Restart and type</h3><p>Restart LibreOffice and type your <code>=RTD(...)</code> formula as in Excel.</p></li></ol>
+    <div class="cols" style="margin-top:40px">
+      <div>
+        <h3>Try it right away</h3>
+        <p>This formula needs no vendor and no setup. If the cell shows the time ticking, everything is working:</p>
+        <pre class="formula"><code>=RTD("calcrtd.sim";;"clock")</code></pre>
+      </div>
+      <div>
+        <h3 class="spacer">&nbsp;</h3>
+        <p>Then use your vendor's formula, exactly as it is written in Excel:</p>
+        <pre class="formula"><code>=RTD("Vendor.ProgID";;"TOPIC1";"TOPIC2")</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how" class="alt">
+  <div class="wrap">
+    <h2>How it works</h2>
+    <p class="sub">The extension adds the function; a small helper program does the talking.</p>
+    <div class="flow"><div class="box"><h3>LibreOffice Calc</h3><p>The extension adds the <code>RTD</code> function and updates the cells as values arrive.</p></div><div class="arrow">&#8596;</div><div class="box mid"><h3>calc-rtd bridge</h3><p>A helper program, started in the background, that plays the part Excel normally plays.</p></div><div class="arrow">&#8596;</div><div class="box"><h3>Vendor's RTD server</h3><p>The same component your data vendor installed for Excel. Nothing changes on their side.</p></div></div>
+    <p class="sub" style="margin-top:24px">The helper only accepts connections from your own user account on your own computer, and closes about a minute after LibreOffice does.</p>
+  </div>
+</section>
+
+<section id="notes">
+  <div class="wrap cols">
+    <div>
+      <h2>What the cells can show</h2>
+      <table class="plain"><tr><th>Cell shows</th><th>Meaning</th></tr><tr><td><code>#N/A</code></td><td>Waiting for the first value, as in Excel. The very first start takes a few seconds.</td></tr><tr><td><code>#RTD: bridge offline</code></td><td>The helper program could not be started. Check that your antivirus did not block <code>calc-rtd-bridge.exe</code>.</td></tr><tr><td><code>#RTD: ...</code></td><td>A message from the RTD server or about it, for example an unknown ProgID.</td></tr><tr><td><code>#NAME?</code></td><td>The extension is not installed, or the formula was copied from Excel (see the note on the right).</td></tr></table>
+    </div>
+    <div>
+      <h2>Good to know</h2>
+      <ul class="notes"><li><b>Copying from Excel.</b> Copied cells arrive as <code>=_xlfn.RTD(...)</code> and show <code>#NAME?</code>. Fix them all at once with <b>Edit &gt; Find &amp; Replace</b>: search for <code>_xlfn.</code>, replace with nothing, and choose "Search in: Formulas". Save your work as <code>.ods</code>.</li><li><b>Do not use "Run as administrator".</b> Start LibreOffice the normal way, like the program that feeds your RTD server.</li><li><b>Security warnings.</b> The helper program is not code-signed, so Windows SmartScreen or your antivirus may warn about it. It is built from the public source code. A variant without any executable is available on the <a href="https://github.com/andreydani/calc-rtd/releases/latest">releases page</a>.</li><li><b>32-bit RTD servers.</b> If your formulas report that the server is not registered, install <code>calc-rtd-win32.oxt</code> instead.</li><li><b>Windows only.</b> RTD servers are a Windows technology. Your data vendor's terms of use still apply.</li></ul>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p><a href="https://github.com/andreydani/calc-rtd">Source code</a> &middot; <a href="https://github.com/andreydani/calc-rtd/issues">Report a problem</a> &middot; <a href="https://github.com/andreydani/calc-rtd/blob/main/docs/TECHNICAL.md">Technical notes</a></p>
+    <p>calc-rtd is an independent open-source project (MIT license), not affiliated with or endorsed by Microsoft or The Document Foundation. Microsoft and Excel are trademarks of the Microsoft group of companies; LibreOffice is a trademark of The Document Foundation.</p>
+  </div>
+</footer>
+<script src="demo.js"></script>
+</body>
+</html>

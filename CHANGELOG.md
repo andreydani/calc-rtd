@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Project website at https://andreydani.github.io/calc-rtd/ (English and Portuguese).
 - README rewritten for spreadsheet users; technical material moved to `docs/TECHNICAL.md`.
 - The extension now declares LibreOffice 6.4 as its minimum version (it was 4.0, which the
   bundled Python of such old versions cannot run).

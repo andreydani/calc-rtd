@@ -19,7 +19,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/andreydani/calc-rtd"
+Homepage = "https://andreydani.github.io/calc-rtd/"
+Source = "https://github.com/andreydani/calc-rtd"
 Issues = "https://github.com/andreydani/calc-rtd/issues"
 
 [project.scripts]

@@ -8,3 +8,5 @@ pypi-dist/
 oxt/
 *.spec
 samples/rtd-server/bin/
+site/logo.svg
+site/logo.png

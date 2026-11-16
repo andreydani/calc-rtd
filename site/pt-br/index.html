@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>calc-rtd - Dados em tempo real do RTD do Excel no LibreOffice Calc</title>
+<meta name="description" content="Extensão gratuita que adiciona ao LibreOffice Calc uma função RTD() compatível com o Excel, para que dados em tempo real de servidores RTD atualizem nas suas planilhas.">
+<meta property="og:title" content="calc-rtd - Dados em tempo real do RTD do Excel no LibreOffice Calc">
+<meta property="og:description" content="Extensão gratuita que adiciona ao LibreOffice Calc uma função RTD() compatível com o Excel, para que dados em tempo real de servidores RTD atualizem nas suas planilhas.">
+<meta property="og:image" content="https://andreydani.github.io/calc-rtd/logo.png">
+<link rel="icon" href="../logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="bar">
+      <a class="brand" href="./"><img src="../logo.svg" alt="">calc-rtd</a>
+      <nav><a href="#install">Instalar</a><a href="#how">Como funciona</a><a href="#notes">Vale saber</a><a href="https://github.com/andreydani/calc-rtd">GitHub</a><a class="lang" href="../">English</a></nav>
+    </div>
+    <div class="hero">
+      <div>
+        <h1>Dados em tempo real de servidores RTD do Excel, no <span>LibreOffice Calc</span></h1>
+        <p class="lead">O seu fornecedor de dados envia valores ao vivo para o Excel por uma fórmula RTD. O calc-rtd faz a mesma fórmula funcionar no Calc. Gratuito e de código aberto.</p>
+        <div class="cta"><a class="btn primary" href="https://github.com/andreydani/calc-rtd/releases/latest/download/calc-rtd-win64.oxt">Baixar para Windows (64 bits)</a><a class="btn ghost" href="https://github.com/andreydani/calc-rtd">Ver no GitHub</a></div>
+        <small>Gratuito, licença MIT. Requer LibreOffice 6.4 ou superior. <a style="color:#c9d6e0" href="https://github.com/andreydani/calc-rtd/releases/latest">Outros downloads</a></small>
+      </div>
+      <div class="sheet" aria-label="Ilustração com números simulados. São as fórmulas de teste que acompanham a extensão; nenhum dado real de mercado é exibido.">
+        <div class="fx"><b>fx</b><span class="mono">=RTD("calcrtd.sim";;"walk";"ACME";38.5)</span></div>
+        <table>
+          <tr><th></th><th>A</th><th>B</th></tr>
+          <tr><th>1</th><td><b>Fórmula</b></td><td class="n"><b>Valor</b></td></tr>
+          <tr><th>2</th><td class="mono">=RTD("calcrtd.sim";;"clock")</td><td class="n" data-sim="clock">--:--:--</td></tr>
+          <tr><th>3</th><td class="mono">=RTD("calcrtd.sim";;"counter")</td><td class="n" data-sim="counter">0</td></tr>
+          <tr><th>4</th><td class="mono">=RTD("calcrtd.sim";;"walk";"ACME";38.5)</td><td class="n" data-sim="acme">38.50</td></tr>
+          <tr><th>5</th><td class="mono">=RTD("calcrtd.sim";;"walk";"GLOBEX";112.4)</td><td class="n" data-sim="globex">112.40</td></tr>
+        </table>
+        <div class="cap">Ilustração com números simulados. São as fórmulas de teste que acompanham a extensão; nenhum dado real de mercado é exibido.</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="install">
+  <div class="wrap">
+    <h2>Instale em três passos</h2>
+    <p class="sub">Você precisa de Windows, do LibreOffice e do servidor RTD que o seu fornecedor de dados instala. Nada mais.</p>
+    <ol class="steps"><li><h3>Baixe</h3><p>Pegue o arquivo <code>calc-rtd-win64.oxt</code> pelo botão acima.</p></li><li><h3>Adicione ao LibreOffice</h3><p>Abra <b>Ferramentas &gt; Extensões</b>, clique em <b>Adicionar</b> e escolha o arquivo.</p></li><li><h3>Reinicie e digite</h3><p>Reinicie o LibreOffice e digite a sua fórmula <code>=RTD(...)</code> como no Excel.</p></li></ol>
+    <div class="cols" style="margin-top:40px">
+      <div>
+        <h3>Teste na hora</h3>
+        <p>Esta fórmula não depende de fornecedor nem de configuração. Se a célula mostrar a hora mudando, está tudo funcionando:</p>
+        <pre class="formula"><code>=RTD("calcrtd.sim";;"clock")</code></pre>
+      </div>
+      <div>
+        <h3 class="spacer">&nbsp;</h3>
+        <p>Depois use a fórmula do seu fornecedor, exatamente como está escrita no Excel:</p>
+        <pre class="formula"><code>=RTD("Vendor.ProgID";;"TOPIC1";"TOPIC2")</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how" class="alt">
+  <div class="wrap">
+    <h2>Como funciona</h2>
+    <p class="sub">A extensão adiciona a função; um pequeno programa auxiliar faz a conversa.</p>
+    <div class="flow"><div class="box"><h3>LibreOffice Calc</h3><p>A extensão adiciona a função <code>RTD</code> e atualiza as células conforme os valores chegam.</p></div><div class="arrow">&#8596;</div><div class="box mid"><h3>Ponte calc-rtd</h3><p>Um programa auxiliar, iniciado em segundo plano, que faz o papel que normalmente é do Excel.</p></div><div class="arrow">&#8596;</div><div class="box"><h3>Servidor RTD do fornecedor</h3><p>O mesmo componente que o seu fornecedor instalou para o Excel. Nada muda do lado dele.</p></div></div>
+    <p class="sub" style="margin-top:24px">O programa auxiliar só aceita conexões da sua própria conta de usuário, no seu próprio computador, e encerra cerca de um minuto depois do LibreOffice.</p>
+  </div>
+</section>
+
+<section id="notes">
+  <div class="wrap cols">
+    <div>
+      <h2>O que as células podem mostrar</h2>
+      <table class="plain"><tr><th>A célula mostra</th><th>Significado</th></tr><tr><td><code>#N/D</code></td><td>Aguardando o primeiro valor, como no Excel. A primeira inicialização leva alguns segundos.</td></tr><tr><td><code>#RTD: bridge offline</code></td><td>O programa auxiliar não pôde ser iniciado. Verifique se o antivírus não bloqueou o <code>calc-rtd-bridge.exe</code>.</td></tr><tr><td><code>#RTD: ...</code></td><td>Uma mensagem do servidor RTD ou sobre ele, por exemplo um ProgID desconhecido.</td></tr><tr><td><code>#NOME?</code></td><td>A extensão não está instalada, ou a fórmula foi copiada do Excel (veja a nota ao lado).</td></tr></table>
+    </div>
+    <div>
+      <h2>Vale saber</h2>
+      <ul class="notes"><li><b>Copiando do Excel.</b> As células copiadas chegam como <code>=_xlfn.RTD(...)</code> e mostram <code>#NOME?</code>. Corrija todas de uma vez em <b>Editar &gt; Localizar e substituir</b>: procure <code>_xlfn.</code>, substitua por nada e marque "Pesquisar em: Fórmulas". Salve o trabalho em <code>.ods</code>.</li><li><b>Não use "Executar como administrador".</b> Abra o LibreOffice do jeito normal, como o programa que alimenta o seu servidor RTD.</li><li><b>Alertas de segurança.</b> O programa auxiliar não tem assinatura digital, então o Windows SmartScreen ou o antivírus podem exibir um alerta. Ele é gerado a partir do código-fonte público. Há uma variante sem executável na <a href="https://github.com/andreydani/calc-rtd/releases/latest">página de releases</a>.</li><li><b>Servidores RTD de 32 bits.</b> Se as fórmulas informarem que o servidor não está registrado, instale o <code>calc-rtd-win32.oxt</code>.</li><li><b>Somente Windows.</b> Servidores RTD são uma tecnologia do Windows. Os termos de uso do seu fornecedor de dados continuam valendo.</li></ul>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p><a href="https://github.com/andreydani/calc-rtd">Código-fonte</a> &middot; <a href="https://github.com/andreydani/calc-rtd/issues">Relatar um problema</a> &middot; <a href="https://github.com/andreydani/calc-rtd/blob/main/docs/TECHNICAL.md">Notas técnicas (em inglês)</a></p>
+    <p>O calc-rtd é um projeto independente de código aberto (licença MIT), sem vínculo com a Microsoft ou a The Document Foundation nem endosso delas. Microsoft e Excel são marcas do grupo Microsoft; LibreOffice é marca da The Document Foundation.</p>
+  </div>
+</footer>
+<script src="../demo.js"></script>
+</body>
+</html>
