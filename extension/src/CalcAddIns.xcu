@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<oor:component-data xmlns:oor="http://openoffice.org/2001/registry"
+                    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                    oor:name="CalcAddIns" oor:package="org.openoffice.Office">
+  <node oor:name="AddInInfo">
+    <node oor:name="com.github.calcrtd.CalcRtd" oor:op="replace">
+      <node oor:name="AddInFunctions">
+        <node oor:name="rtd" oor:op="replace">
+          <prop oor:name="DisplayName">
+            <value xml:lang="en">RTD</value>
+          </prop>
+          <prop oor:name="Description">
+            <value xml:lang="en">Retrieves real-time data from an Excel RTD (RealTimeData) server through the calc-rtd bridge.</value>
+            <value xml:lang="pt">Obtém dados em tempo real de um servidor RTD (RealTimeData) do Excel por meio da ponte calc-rtd.</value>
+          </prop>
+          <prop oor:name="Category">
+            <value>Add-In</value>
+          </prop>
+          <node oor:name="Parameters">
+            <node oor:name="progId" oor:op="replace">
+              <prop oor:name="DisplayName">
+                <value xml:lang="en">ProgID</value>
+              </prop>
+              <prop oor:name="Description">
+                <value xml:lang="en">Programmatic ID of the RTD server, as used in Excel.</value>
+                <value xml:lang="pt">ProgID do servidor RTD, como usado no Excel.</value>
+              </prop>
+            </node>
+            <node oor:name="server" oor:op="replace">
+              <prop oor:name="DisplayName">
+                <value xml:lang="en">server</value>
+                <value xml:lang="pt">servidor</value>
+              </prop>
+              <prop oor:name="Description">
+                <value xml:lang="en">Machine running the RTD server; leave empty for this computer.</value>
+                <value xml:lang="pt">Máquina onde roda o servidor RTD; deixe vazio para este computador.</value>
+              </prop>
+            </node>
+            <node oor:name="topics" oor:op="replace">
+              <prop oor:name="DisplayName">
+                <value xml:lang="en">topic</value>
+                <value xml:lang="pt">tópico</value>
+              </prop>
+              <prop oor:name="Description">
+                <value xml:lang="en">One or more values that together identify the piece of data.</value>
+                <value xml:lang="pt">Um ou mais valores que, juntos, identificam o dado desejado.</value>
+              </prop>
+            </node>
+          </node>
+        </node>
+      </node>
+    </node>
+  </node>
+</oor:component-data>

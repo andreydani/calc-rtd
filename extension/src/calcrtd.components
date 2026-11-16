@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Passive registration: LibreOffice does not have to import calcrtd.py
+     while installing, when the type library is not loaded yet. -->
+<components xmlns="http://openoffice.org/2010/uno-components">
+  <component loader="com.sun.star.loader.Python" uri="calcrtd.py">
+    <implementation name="com.github.calcrtd.CalcRtd">
+      <service name="com.sun.star.sheet.AddIn"/>
+    </implementation>
+  </component>
+</components>

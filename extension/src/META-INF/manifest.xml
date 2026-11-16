@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest:manifest xmlns:manifest="http://openoffice.org/2001/manifest">
+  <manifest:file-entry manifest:media-type="application/vnd.sun.star.uno-typelibrary;type=RDB"
+                       manifest:full-path="XCalcRtd.rdb"/>
+  <manifest:file-entry manifest:media-type="application/vnd.sun.star.uno-components"
+                       manifest:full-path="calcrtd.components"/>
+  <manifest:file-entry manifest:media-type="application/vnd.sun.star.configuration-data"
+                       manifest:full-path="CalcAddIns.xcu"/>
+</manifest:manifest>

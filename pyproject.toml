@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "calc-rtd-bridge"
+version = "0.1.0"
+description = "Use Excel RTD (RealTimeData) servers from LibreOffice Calc"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.8"
+dependencies = ["comtypes>=1.2; sys_platform == 'win32'"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Office/Business :: Financial :: Spreadsheet",
+]
+
+[project.scripts]
+calc-rtd-bridge = "calc_rtd_bridge.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<description xmlns="http://openoffice.org/extensions/description/2006"
+             xmlns:xlink="http://www.w3.org/1999/xlink">
+  <identifier value="com.github.calcrtd"/>
+  <version value="0.1.0"/>
+  <display-name>
+    <name lang="en">Calc RTD - Excel RealTimeData for Calc</name>
+    <name lang="pt">Calc RTD - RealTimeData do Excel no Calc</name>
+  </display-name>
+  <dependencies>
+    <OpenOffice.org-minimal-version value="4.0" name="LibreOffice 4.0"/>
+  </dependencies>
+</description>

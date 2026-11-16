@@ -1,0 +1,129 @@
+# calc-rtd
+
+**Use Excel RTD (RealTimeData) servers from LibreOffice Calc**, with the formula you already know:
+
+```
+=RTD("Vendor.ProgID";;"TOPIC1";"TOPIC2")
+```
+
+Many market-data terminals and industrial tools publish live data to spreadsheets through an
+*RTD server*, a COM component that Microsoft Excel loads for its `RTD()` function. LibreOffice
+Calc has no such function. calc-rtd adds it: a Calc extension provides `RTD()`, and a small
+Windows bridge loads the vendor's RTD server and plays Excel's part of the conversation.
+
+> **Status: experimental (0.1).** Verified end to end on Windows with LibreOffice and a
+> third-party .NET RTD server, and on Linux with the built-in simulated source.
+
+calc-rtd is an independent project. It is not affiliated with or endorsed by Microsoft or
+The Document Foundation. It contains no Microsoft code: it implements the client side of the
+publicly documented `IRtdServer` interface.
+
+## How it works
+
+```
+ LibreOffice Calc                      bridge (Windows process)             RTD server
++------------------+   local TCP     +--------------------------+  COM  +----------------+
+| calc-rtd.oxt     |<--------------->| calc-rtd-bridge serve    |<----->| IRtdServer     |
+| =RTD(...)        |  JSON lines     | acts as Excel would      |       | (vendor's own) |
++------------------+ 127.0.0.1:47365 +--------------------------+       +----------------+
+```
+
+- **Extension** (`extension/`): a Python add-in that registers the `RTD` function and returns
+  an `XVolatileResult`, Calc's mechanism for values that change on their own. Standard library
+  only, so it runs on the Python bundled with LibreOffice.
+- **Bridge** (`src/calc_rtd_bridge/`): a separate process that creates the RTD server through
+  COM and drives it the way Excel does (`ServerStart`, `ConnectData`, `UpdateNotify`,
+  `RefreshData`, `Heartbeat`...). Keeping it outside LibreOffice means it can match the RTD
+  server's bitness (32/64-bit), and a misbehaving server cannot take the spreadsheet down.
+
+## Install
+
+Requirements: Windows, LibreOffice 4.0 or later, Python 3.8 or later.
+
+```bat
+pip install git+https://github.com/andreydani/calc-rtd
+```
+
+Then build the extension (`python tools/build_oxt.py`) and add `dist/calc-rtd.oxt` in
+**Tools > Extensions > Add**, and restart LibreOffice.
+
+> **32-bit or 64-bit?** An RTD server shipped as a DLL only loads into a process of the same
+> bitness. Run the bridge with a Python that matches the Excel the server was installed for
+> (`calc-rtd-bridge serve` prints the bitness in use). Out-of-process (EXE) servers do not care.
+
+> **Do not "Run as administrator".** Run the bridge (and LibreOffice) at the same privilege
+> level as the application that feeds the RTD server. An elevated process cannot see the COM
+> objects of a normal one, and the server fails with "Class not registered".
+
+## Use
+
+1. Start the bridge and leave it running:
+   ```bat
+   calc-rtd-bridge serve
+   ```
+2. In Calc, type the formula as you would in Excel: `=RTD("Vendor.ProgID";;"ACME";"LAST")`.
+
+Without the bridge, cells show `#RTD: bridge offline` and recover on their own once it is up.
+Before the first value arrives a cell shows `#N/A`, as in Excel. Server errors appear as text
+starting with `#RTD:`.
+
+`CALC_RTD_PORT` changes the port on both sides (`serve --port`). Set `CALC_RTD_BRIDGE_CMD`
+(for example `pythonw -m calc_rtd_bridge serve`) to have the extension start the bridge.
+
+### Simulated source (any OS, no RTD server needed)
+
+```
+=RTD("calcrtd.sim";;"clock")               current time, every second
+=RTD("calcrtd.sim";;"counter";0.2)         1, 2, 3... every 0.2 s
+=RTD("calcrtd.sim";;"random";10;20)        random number between 10 and 20
+=RTD("calcrtd.sim";;"walk";"ACME";38.5)    random walk starting at 38.5
+=RTD("calcrtd.sim";;"echo";"hello")        fixed text
+```
+
+## Try an RTD server without LibreOffice
+
+`monitor` loads an RTD server directly and prints what Calc would receive. Use it to check
+that a given server works with the bridge:
+
+```bat
+calc-rtd-bridge monitor "=RTD(Vendor.ProgID;;ACME;LAST)" --seconds 30
+```
+
+The formula can be pasted from Excel (`,` or `;` separators, quotes optional). For several
+formulas use `--file formulas.txt` (one per line) or `--progid X --topics A B`. Put `-v` before
+`monitor` for detailed logging. The exit code is 0 if updates were received.
+
+`calc-rtd-bridge watch ...` does the same through the socket of a running bridge.
+
+## Known limitations
+
+- **Windows only** for real servers: RTD is a COM technology.
+- **Excel files:** Calc imports RTD formulas in `.xlsx` files as `#NAME?`, and a formula
+  pasted from Excel arrives as `=_xlfn.RTD(...)`; retype it or remove the `_xlfn.` prefix.
+  Saving to `.xlsx` does not produce a formula Excel understands. Use `.ods`.
+- Some vendors tie their RTD server to their own Excel add-in (login, licensing) and may
+  refuse a host other than Excel. Your data vendor's terms of use still apply.
+- Out-of-process RTD servers need the RTD interfaces registered for marshalling, which
+  installing Excel does.
+- The bridge accepts connections from `127.0.0.1` only, without authentication: any local
+  program can subscribe to topics.
+- Updates are delivered at most every `--throttle` milliseconds (default 500; Excel uses 2000).
+
+## Development
+
+```bash
+pip install -e . pytest
+pytest                                    # bridge, protocol, RTD host with a fake driver
+python tools/build_oxt.py                 # builds dist/calc-rtd.oxt (no LibreOffice SDK needed)
+unopkg add -f dist/calc-rtd.oxt
+python tests/integration_libreoffice.py   # end to end against a headless LibreOffice
+```
+
+`tools/build_oxt.py` writes the UNO type library (`.rdb`) directly in its binary format, so
+`unoidl-write` from the SDK is not required. The protocol between extension and bridge is
+documented in `src/calc_rtd_bridge/protocol.py`; any program can be a client of the bridge.
+
+## License
+
+MIT. Microsoft and Excel are trademarks of the Microsoft group of companies; LibreOffice is a
+trademark of The Document Foundation.
