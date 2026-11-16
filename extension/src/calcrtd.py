@@ -43,6 +43,7 @@ PORT = int(os.environ.get("CALC_RTD_PORT", "47365"))
 OFFLINE = "#RTD: bridge offline"
 RETRY_SECONDS = 2.0
 SPAWN_INTERVAL = 30.0
+STARTUP_GRACE = 20.0  # show #N/A, not "offline", while a freshly started bridge comes up
 IDLE_EXIT_SECONDS = os.environ.get("CALC_RTD_IDLE_EXIT", "60")
 
 
@@ -157,6 +158,8 @@ class BridgeLink(threading.Thread):
         self._next_id = 1
         self._sock = None
         self._last_spawn = 0.0
+        self._starting_until = 0.0
+        self._offline = False
 
     # -- called from Calc's thread -----------------------------------------
     def result_for(self, progid, server, topics):
@@ -172,7 +175,8 @@ class BridgeLink(threading.Thread):
             result.request = {"op": "subscribe", "id": result.id, "progid": progid,
                               "server": server, "topics": list(topics)}
             if self._sock is None:
-                result.value = OFFLINE
+                if self._offline:
+                    result.value = OFFLINE
             else:
                 self._send(result.request)
         return result
@@ -201,7 +205,11 @@ class BridgeLink(threading.Thread):
                 sock = socket.create_connection((HOST, PORT), timeout=3.0)
             except OSError:
                 self._maybe_spawn()
-                time.sleep(RETRY_SECONDS)
+                if time.monotonic() < self._starting_until:
+                    time.sleep(0.5)  # the bridge we just started is still loading
+                else:
+                    self._mark_offline()
+                    time.sleep(RETRY_SECONDS)
                 continue
             try:
                 sock.settimeout(None)
@@ -210,6 +218,7 @@ class BridgeLink(threading.Thread):
                               + "\n").encode("utf-8"))
                 with self._lock:
                     self._sock = sock
+                    self._offline = False
                     pending = list(self._by_id.values())
                     for result in pending:
                         self._send(result.request)
@@ -222,14 +231,19 @@ class BridgeLink(threading.Thread):
             finally:
                 with self._lock:
                     self._sock = None
-                    stale = list(self._by_id.values())
                 try:
                     sock.close()
                 except OSError:
                     pass
-                for result in stale:
-                    result.set(OFFLINE)
+                self._mark_offline()
             time.sleep(RETRY_SECONDS)
+
+    def _mark_offline(self):
+        with self._lock:
+            self._offline = True
+            stale = list(self._by_id.values())
+        for result in stale:
+            result.set(OFFLINE)
 
     def _read(self, sock):
         buffer = b""
@@ -270,6 +284,7 @@ class BridgeLink(threading.Thread):
             subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL, close_fds=True,
                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            self._starting_until = now + STARTUP_GRACE
         except Exception:
             pass
 

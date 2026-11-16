@@ -70,11 +70,14 @@ In Calc, type the formula as you would in Excel:
 ```
 
 The extension starts the bridge in the background the first time an `RTD` formula is
-calculated, and the bridge exits about a minute after LibreOffice closes. Before the first
-value arrives a cell shows `#N/A`, as in Excel. Server errors appear as text starting with
+calculated, and the bridge exits about a minute after LibreOffice closes. Cells show `#N/A`
+until the first value arrives, as in Excel; the very first start can take a few seconds. Server errors appear as text starting with
 `#RTD:`, and `#RTD: bridge offline` means the bridge could not be started or reached.
 
-Formulas pasted from Excel arrive as `=_xlfn.RTD(...)`; that spelling works too.
+Excel writes the function as `_xlfn.RTD` on the clipboard, and that spelling is accepted too.
+If cells copied from Excel still show `#NAME?`, Calc kept them as unparsed text: use
+**Edit > Find & Replace**, search for `_xlfn.` and replace it with nothing ("Search in:
+Formulas"), which makes Calc read the formulas again.
 
 You can also run the bridge yourself, for example to see its log:
 
@@ -120,7 +123,7 @@ formulas use `--file formulas.txt` (one per line) or `--progid X --topics A B`. 
 
 - **Windows only** for real servers: RTD is a COM technology.
 - **Excel files:** Calc imports RTD formulas in `.xlsx` files as `#NAME?`; re-enter them
-  (copy and paste from Excel works). Saving to `.xlsx` does not produce a formula Excel
+  (see the Find & Replace tip above). Saving to `.xlsx` does not produce a formula Excel
   understands. Use `.ods`.
 - Some vendors tie their RTD server to their own Excel add-in (login, licensing) and may
   refuse a host other than Excel. Your data vendor's terms of use still apply.

@@ -161,8 +161,17 @@ def autostart_session(env):
     office = Office(dict(env, CALC_RTD_IDLE_EXIT="3"))
     try:
         office.formula("A1", '=RTD("calcrtd.sim";;"counter";0.2)')
+        office.sheet.getCellRangeByName("A2").FormulaLocal = '=_xlfn.RTD("calcrtd.sim";;"echo";"typed")'
         office.doc.calculateAll()
-        time.sleep(8)
+        seen = set()
+        deadline = time.time() + 8
+        while time.time() < deadline:
+            seen.add(office.cell("A1")[0])
+            time.sleep(0.1)
+        check("no 'offline' flash while the bridge is starting", not any("offline" in text for text in seen),
+              repr(sorted(seen))[:80])
+        check("_xlfn.RTD typed in the cell (UI grammar)", office.cell("A2")[0] == "typed",
+              "%r error %s" % (office.cell("A2")[0], office.cell("A2")[2]))
         check("extension started the bridge by itself", port_open())
         check("values arrive through the auto-started bridge", office.cell("A1")[1] >= 1,
               "(A1=%r)" % (office.cell("A1"),))
