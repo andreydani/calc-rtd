@@ -7,3 +7,4 @@ dist/
 pypi-dist/
 oxt/
 *.spec
+samples/rtd-server/bin/

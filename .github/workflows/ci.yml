@@ -27,7 +27,13 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install . pytest
-      - run: python -m pytest -v
+      - name: Build and register the sample RTD server
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./samples/rtd-server/build.ps1 -Arch x64
+          "CALC_RTD_SAMPLE_SERVER=1" >> $env:GITHUB_ENV
+      - run: python -m pytest -v -rs
 
   libreoffice:
     name: End to end with LibreOffice
@@ -89,6 +95,12 @@ jobs:
         run: |
           dist\calc-rtd-bridge.exe --version
           dist\calc-rtd-bridge.exe -v monitor --progid calcrtd.sim --topics counter 0.2 --seconds 2
+      - name: Test the executable against a real RTD server
+        shell: pwsh
+        run: |
+          ./samples/rtd-server/build.ps1 -Arch ${{ matrix.arch }}
+          dist\calc-rtd-bridge.exe -v monitor "=RTD(CalcRtd.Sample;;counter)" "=RTD(CalcRtd.Sample;;echo;hello)" --seconds 3
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build extension
         run: python tools/build_oxt.py --bridge-exe dist/calc-rtd-bridge.exe --output oxt/calc-rtd-${{ matrix.label }}.oxt
       - uses: actions/upload-artifact@v4
