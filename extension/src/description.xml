@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <description xmlns="http://openoffice.org/extensions/description/2006"
+             xmlns:d="http://openoffice.org/extensions/description/2006"
+             xmlns:lo="http://libreoffice.org/extensions/description/2011"
              xmlns:xlink="http://www.w3.org/1999/xlink">
   <identifier value="com.github.calcrtd"/>
   <version value="@VERSION@"/>
@@ -14,6 +16,6 @@
     <default xlink:href="icon.png"/>
   </icon>
   <dependencies>
-    <OpenOffice.org-minimal-version value="4.0" name="LibreOffice 4.0"/>
+    <lo:LibreOffice-minimal-version value="6.4" d:name="LibreOffice 6.4"/>
   </dependencies>
 </description>

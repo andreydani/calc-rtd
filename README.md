@@ -4,171 +4,97 @@
 
 # calc-rtd
 
-**Use Excel RTD (RealTimeData) servers from LibreOffice Calc**, with the formula you already know:
+**Real-time data from Excel RTD servers, in LibreOffice Calc.** Same formula as in Excel:
 
 ```
 =RTD("Vendor.ProgID";;"TOPIC1";"TOPIC2")
 ```
 
-Many market-data terminals and industrial tools publish live data to spreadsheets through an
-*RTD server*, a COM component that Microsoft Excel loads for its `RTD()` function. LibreOffice
-Calc has no such function. calc-rtd adds it: a Calc extension provides `RTD()`, and a small
-Windows bridge loads the vendor's RTD server and plays Excel's part of the conversation.
+Many market-data terminals and industrial tools feed live values to spreadsheets through an
+*RTD (RealTimeData) server* made for Microsoft Excel. LibreOffice Calc has no `RTD` function,
+so those formulas do not work there. calc-rtd adds the function to Calc and talks to the
+vendor's RTD server on your behalf.
 
-> **Status: experimental (0.1).** Verified end to end on Windows with LibreOffice and a
-> third-party .NET RTD server. Every commit is tested against LibreOffice and a sample RTD
-> server, in 32 and 64 bits.
+## Download and install
 
-calc-rtd is an independent project. It is not affiliated with or endorsed by Microsoft or
-The Document Foundation. It contains no Microsoft code: it implements the client side of the
-publicly documented `IRtdServer` interface.
+You need **Windows**, **LibreOffice 6.4 or later** (tested on 24.2) and the RTD server your
+data vendor installs.
 
-## How it works
+1. Download **`calc-rtd-win64.oxt`** from the
+   [latest release](https://github.com/andreydani/calc-rtd/releases/latest).
+2. In LibreOffice, open **Tools > Extensions**, click **Add** and select the file.
+3. Restart LibreOffice (close the Quickstarter too, if you use it).
 
-```
- LibreOffice Calc                      bridge (Windows process)             RTD server
-+------------------+   local TCP     +--------------------------+  COM  +----------------+
-| calc-rtd.oxt     |<--------------->| calc-rtd-bridge serve    |<----->| IRtdServer     |
-| =RTD(...)        |  JSON lines     | acts as Excel would      |       | (vendor's own) |
-+------------------+ 127.0.0.1:47365 +--------------------------+       +----------------+
-```
-
-- **Extension** (`extension/`): a Python add-in that registers the `RTD` function and returns
-  an `XVolatileResult`, Calc's mechanism for values that change on their own. Standard library
-  only, so it runs on the Python bundled with LibreOffice.
-- **Bridge** (`src/calc_rtd_bridge/`): a separate process that creates the RTD server through
-  COM and drives it the way Excel does (`ServerStart`, `ConnectData`, `UpdateNotify`,
-  `RefreshData`, `Heartbeat`...). Keeping it outside LibreOffice means it can match the RTD
-  server's bitness (32/64-bit), and a misbehaving server cannot take the spreadsheet down.
-
-## Install
-
-Requirements: Windows and LibreOffice 4.0 or later.
-
-1. Download the extension from the [Releases](https://github.com/andreydani/calc-rtd/releases)
-   page:
-   - `calc-rtd-win64.oxt` or `calc-rtd-win32.oxt` include the bridge as a standalone
-     program; nothing else to install. Pick the one that matches your RTD server (see below).
-   - `calc-rtd.oxt` contains no executable. It needs Python 3.9+ and
-     `pip install calc-rtd`; choose it if you prefer not to run a downloaded `.exe`.
-2. In LibreOffice: **Tools > Extensions > Add**, select the file, then restart LibreOffice
-   (including the Quickstarter, if you use it).
-
-> **32-bit or 64-bit?** An RTD server shipped as a DLL only loads into a process of the same
-> bitness as the Excel it was installed for; that is the bridge you need (it does not have to
-> match LibreOffice). If unsure, try `win64` first. Out-of-process (EXE) servers work with both.
-
-> **The bundled program is not code-signed.** Windows SmartScreen or your antivirus may warn
-> about it. It is built from this repository by GitHub Actions; use the Python-only extension
-> if you would rather not run it.
-
-> **Do not "Run as administrator".** Run LibreOffice (and the bridge) at the same privilege
-> level as the application that feeds the RTD server. An elevated process cannot see the COM
-> objects of a normal one, and the server fails with "Class not registered".
+That is all. If your formulas show a "not registered" error, your RTD server is a 32-bit one:
+install `calc-rtd-win32.oxt` instead.
 
 ## Use
 
-In Calc, type the formula as you would in Excel:
+Type the formula in a cell exactly as you would in Excel:
 
 ```
 =RTD("Vendor.ProgID";;"ACME";"LAST")
 ```
 
-The extension starts the bridge in the background the first time an `RTD` formula is
-calculated, and the bridge exits about a minute after LibreOffice closes. Cells show `#N/A`
-until the first value arrives, as in Excel; the very first start can take a few seconds. Server errors appear as text starting with
-`#RTD:`, and `#RTD: bridge offline` means the bridge could not be started or reached.
-
-You can also run the bridge yourself, for example to see its log:
-
-```bat
-calc-rtd-bridge -v serve
-```
-
-Environment variables, read by the extension and the bridge:
-
-| Variable | Meaning |
-|---|---|
-| `CALC_RTD_PORT` | TCP port on 127.0.0.1 (default 47365) |
-| `CALC_RTD_AUTOSTART=0` | the extension never starts the bridge |
-| `CALC_RTD_BRIDGE_CMD` | command line the extension uses to start the bridge |
-| `CALC_RTD_TOKEN_FILE` | location of the authentication token |
-
-### Simulated source (any OS, no RTD server needed)
+Want to see it working before involving any vendor? This one needs nothing else:
 
 ```
-=RTD("calcrtd.sim";;"clock")               current time, every second
+=RTD("calcrtd.sim";;"clock")
+```
+
+More built-in test formulas:
+
+```
 =RTD("calcrtd.sim";;"counter";0.2)         1, 2, 3... every 0.2 s
 =RTD("calcrtd.sim";;"random";10;20)        random number between 10 and 20
 =RTD("calcrtd.sim";;"walk";"ACME";38.5)    random walk starting at 38.5
 =RTD("calcrtd.sim";;"echo";"hello")        fixed text
 ```
 
-## Try an RTD server without LibreOffice
+### What the cells can show
 
-`monitor` loads an RTD server directly and prints what Calc would receive. Use it to check
-that a given server works with the bridge:
+| Cell shows | Meaning |
+|---|---|
+| `#N/A` | Waiting for the first value, as in Excel. The very first start takes a few seconds. |
+| `#RTD: bridge offline` | The helper program could not be started. Check that your antivirus did not block `calc-rtd-bridge.exe`. |
+| `#RTD: ...` | A message from the RTD server or about it, for example an unknown ProgID. |
+| `#NAME?` | The extension is not installed, or the formula was copied from Excel (see below). |
 
-```bat
-calc-rtd-bridge monitor "=RTD(Vendor.ProgID;;ACME;LAST)" --seconds 30
-```
+## Good to know
 
-The formula can be pasted from Excel (`,` or `;` separators, quotes optional). For several
-formulas use `--file formulas.txt` (one per line) or `--progid X --topics A B`. Put `-v` before
-`monitor` for detailed logging. The exit code is 0 if updates were received.
-
-`calc-rtd-bridge watch ...` does the same through the socket of a running bridge.
-
-### Sample RTD server
-
-`samples/rtd-server` contains a minimal RTD server in C# (ProgID `CalcRtd.Sample`) that needs
-only the .NET Framework included with Windows. From an elevated PowerShell:
-
-```powershell
-.\samples\rtd-server\build.ps1 -Arch x64      # add -Unregister to remove it
-calc-rtd-bridge monitor "=RTD(CalcRtd.Sample;;counter)" --seconds 5
-```
-
-The CI uses it to test the COM layer, in 32 and 64 bits, on every commit.
-
-## Known limitations
-
-- **Windows only** for real servers: RTD is a COM technology.
-- **Copying from Excel:** cells copied from Excel arrive as `=_xlfn.RTD(...)` and show
+- **Copying from Excel.** Cells copied from Excel arrive as `=_xlfn.RTD(...)` and show
   `#NAME?`, because that is how Excel puts the function on the clipboard. Fix them all at once
-  with **Edit > Find & Replace**: search for `_xlfn.`, replace with nothing, "Search in:
-  Formulas". The same applies to RTD formulas in an opened `.xlsx` file. Saving to `.xlsx`
-  does not produce a formula Excel understands; use `.ods`.
-- Some vendors tie their RTD server to their own Excel add-in (login, licensing) and may
-  refuse a host other than Excel. Your data vendor's terms of use still apply.
-- Out-of-process RTD servers need the RTD interfaces registered for marshalling, which
-  installing Excel does.
-- The bridge listens on `127.0.0.1` only and requires a random token stored in a file that
-  only your user account can read (`%APPDATA%\calc-rtd\token`). Programs running under your
-  own account can still read it; the token keeps other accounts on the machine out.
-- Updates are delivered at most every `--throttle` milliseconds (default 500; Excel uses 2000).
+  with **Edit > Find & Replace**: search for `_xlfn.`, replace with nothing, and choose
+  "Search in: Formulas". The same goes for RTD formulas in an opened `.xlsx` file. Save your
+  work as `.ods`.
+- **Do not use "Run as administrator".** Start LibreOffice the normal way, like the program
+  that feeds your RTD server. Otherwise the server fails with "Class not registered".
+- **Security warnings.** The extension includes a small helper program
+  (`calc-rtd-bridge.exe`) that is not code-signed, so Windows SmartScreen or your antivirus
+  may warn about it. It is built from this repository by GitHub Actions. If you prefer not to
+  run it, install `calc-rtd.oxt` (no executable inside) together with Python 3.9+ and
+  `pip install calc-rtd`.
+- **Windows only.** RTD servers are a Windows technology. On Linux and macOS only the
+  `calcrtd.sim` test formulas work.
+- **Your vendor's rules still apply.** Some vendors tie their RTD server to Excel or restrict
+  how their data may be used; check their terms.
 
-## Development
+## How it works, in one paragraph
 
-```bash
-pip install -e . pytest
-pytest                                    # bridge, protocol, RTD host (COM tests need the sample server)
-python tools/build_oxt.py                 # builds dist/calc-rtd.oxt (no LibreOffice SDK needed)
-unopkg add -f dist/calc-rtd.oxt
-python tests/integration_libreoffice.py   # end to end against a headless LibreOffice
-```
+The extension provides the `RTD` function. The first time it is used, it starts a helper
+program (the "bridge") in the background; the bridge loads the vendor's RTD server and plays
+the part Excel normally plays, passing every update to Calc. The bridge only accepts
+connections from your own user account on your own computer, and it closes about a minute
+after LibreOffice does.
 
-To use the bridge from source instead of a release:
+Details, diagnostics and development notes are in [docs/TECHNICAL.md](docs/TECHNICAL.md), and
+the version history in [CHANGELOG.md](CHANGELOG.md). Problems and questions:
+[open an issue](https://github.com/andreydani/calc-rtd/issues).
 
-```bat
-pip install git+https://github.com/andreydani/calc-rtd
-```
+## About
 
-`tools/build_oxt.py` writes the UNO type library (`.rdb`) directly in its binary format, so
-`unoidl-write` from the SDK is not required. The protocol between extension and bridge is
-documented in `src/calc_rtd_bridge/protocol.py`; any program can be a client of the bridge.
-
-## License
-
-MIT. Microsoft and Excel are trademarks of the Microsoft group of companies; LibreOffice is a
-trademark of The Document Foundation.
+calc-rtd is an independent open-source project under the MIT license. It is not affiliated
+with or endorsed by Microsoft or The Document Foundation, and contains no Microsoft code: it
+implements the client side of the publicly documented `IRtdServer` interface. Microsoft and
+Excel are trademarks of the Microsoft group of companies; LibreOffice is a trademark of
+The Document Foundation.
