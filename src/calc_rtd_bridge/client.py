@@ -34,6 +34,8 @@ class BridgeClient:
                 chunk = self._sock.recv(65536)
             except socket.timeout:
                 return None
+            except ConnectionError as exc:
+                raise EOFError("bridge closed the connection") from exc
             if not chunk:
                 raise EOFError("bridge closed the connection")
             self._buffer += chunk

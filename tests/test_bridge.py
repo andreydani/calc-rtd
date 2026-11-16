@@ -208,10 +208,14 @@ def test_tcp_requires_token():
     try:
         with BridgeClient(port=server.address[1], token="wrong") as intruder:
             assert intruder.hello["auth"] is True
-            intruder.subscribe("calcrtd.sim", "", ["clock"])
-            assert intruder.read(timeout=2)["message"] == "authentication failed"
+            # The bridge answers "authentication failed" and hangs up; depending on timing
+            # the client sees that message first or just the closed connection.
             with pytest.raises((EOFError, OSError)):
-                intruder.read(timeout=2)
+                intruder.subscribe("calcrtd.sim", "", ["clock"])
+                for _ in range(3):
+                    message = intruder.read(timeout=2)
+                    assert message is not None and message["op"] == "error"
+                    assert message["message"] == "authentication failed"
         assert hub.topic_count() == 0
         assert server.client_count() == 0  # a rejected client never counts as connected
         with BridgeClient(port=server.address[1], token="s3cret") as client:
