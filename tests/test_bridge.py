@@ -213,13 +213,14 @@ def test_tcp_requires_token():
             with pytest.raises((EOFError, OSError)):
                 intruder.read(timeout=2)
         assert hub.topic_count() == 0
-        assert server.idle_seconds() > 0  # a rejected client never counts as connected
+        assert server.client_count() == 0  # a rejected client never counts as connected
         with BridgeClient(port=server.address[1], token="s3cret") as client:
             client.subscribe("calcrtd.sim", "", ["echo", "x"])
             deadline = time.monotonic() + 2
             while hub.topic_count() == 0 and time.monotonic() < deadline:
                 time.sleep(0.02)
-            assert hub.topic_count() == 1 and server.idle_seconds() == 0.0
+            assert hub.topic_count() == 1 and server.client_count() == 1
+            assert server.idle_seconds() == 0.0
     finally:
         server.close()
 

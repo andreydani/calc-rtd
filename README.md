@@ -44,7 +44,7 @@ Requirements: Windows and LibreOffice 4.0 or later.
    page:
    - `calc-rtd-win64.oxt` or `calc-rtd-win32.oxt` include the bridge as a standalone
      program; nothing else to install. Pick the one that matches your RTD server (see below).
-   - `calc-rtd.oxt` contains no executable. It needs Python 3.8+ and
+   - `calc-rtd.oxt` contains no executable. It needs Python 3.9+ and
      `pip install calc-rtd`; choose it if you prefer not to run a downloaded `.exe`.
 2. In LibreOffice: **Tools > Extensions > Add**, select the file, then restart LibreOffice
    (including the Quickstarter, if you use it).

@@ -164,6 +164,10 @@ class BridgeServer:
             if not self._clients:
                 self.idle_since = time.monotonic()
 
+    def client_count(self):
+        with self._lock:
+            return len(self._clients)
+
     def idle_seconds(self):
         """Seconds without any connected client (0 while someone is connected)."""
         with self._lock:
