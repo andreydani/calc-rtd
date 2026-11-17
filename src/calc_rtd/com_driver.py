@@ -1,4 +1,4 @@
-"""COM side of the bridge (Windows only): talks IRtdServer like Excel does.
+"""COM side (Windows only): talks IRtdServer the way Excel does.
 
 The two interfaces below are transcribed from Excel's type library so that
 Excel itself does not have to be installed to load an in-process RTD
@@ -9,13 +9,15 @@ for marshalling, which installing Excel does.)
     IRTDUpdateEvent  {A43788C1-D91B-11D3-8F39-00C04F3651B8}
 
 Everything here must run on one thread: a single-threaded apartment whose
-message loop is pumped by ``pump()``.
+message loop is pumped by ``pump()``.  Call ``enter_apartment()`` on that
+thread first and ``leave_apartment()`` when done.
 """
 
 from __future__ import annotations
 
 import ctypes
 import logging
+import struct
 import sys
 from ctypes import HRESULT, POINTER, byref, c_long, wintypes
 
@@ -28,7 +30,7 @@ from comtypes import COMMETHOD, GUID, STDMETHOD, COMError, COMObject, dispid  # 
 from comtypes.automation import IDispatch, VARIANT, VARIANT_BOOL  # noqa: E402
 from comtypes.safearray import _midlSAFEARRAY  # noqa: E402
 
-from .rtd_host import pairs_from_refresh  # noqa: E402
+from .host import pairs_from_refresh  # noqa: E402
 
 log = logging.getLogger("calc_rtd.com")
 
@@ -40,6 +42,15 @@ CO_E_CLASSSTRING = -2147221005
 VT_ERROR = 10
 
 _VariantArray = _midlSAFEARRAY(VARIANT)
+
+
+def enter_apartment():
+    """Make the calling thread a COM single-threaded apartment."""
+    comtypes.CoInitializeEx(comtypes.COINIT_APARTMENTTHREADED)
+
+
+def leave_apartment():
+    comtypes.CoUninitialize()
 
 
 class IRTDUpdateEvent(IDispatch):
@@ -121,16 +132,112 @@ class UpdateEvent(COMObject):
         return S_OK
 
 
+# -- retiring the callback object --------------------------------------------
+#
+# After ServerTerminate a server should forget the callback object, but
+# garbage-collected servers (.NET ones, i.e. most of them) keep their reference
+# until their runtime shuts down - which happens at process exit, after the
+# Python interpreter is gone.  A Release() arriving then would run Python code
+# in a dead interpreter and crash the process.  Excel does not have the problem
+# because its callback object is native code.
+#
+# So when a server is terminated, the callback object is "retired": the memory
+# the server still points to is kept alive forever, and its vtable pointer is
+# switched to a table of tiny native functions that just return.  Late calls
+# become harmless no-ops that never enter Python.
+
+_E_NOINTERFACE = 0x80004002
+_E_NOTIMPL = 0x80004001
+_E_FAIL = 0x80004005
+_DISP_E_UNKNOWNNAME = 0x80020006
+
+# (return value, number of arguments including `this`) per vtable slot of
+# IRTDUpdateEvent: IUnknown, IDispatch, then the interface's own methods.
+_RETIRED_SLOTS = (
+    (_E_NOINTERFACE, 3),       # QueryInterface
+    (1, 1),                    # AddRef
+    (1, 1),                    # Release
+    (_E_NOTIMPL, 2),           # GetTypeInfoCount
+    (_E_NOTIMPL, 4),           # GetTypeInfo
+    (_DISP_E_UNKNOWNNAME, 6),  # GetIDsOfNames
+    (S_OK, 9),                 # Invoke
+    (S_OK, 1),                 # UpdateNotify
+    (_E_FAIL, 2),              # get_HeartbeatInterval
+    (S_OK, 2),                 # put_HeartbeatInterval
+    (S_OK, 1),                 # Disconnect
+)
+
+_retired_vtable = None  # address of the native table; False if unsupported here
+
+
+def _build_retired_vtable():
+    """Allocate the native no-op vtable once per process. Returns its address or False."""
+    import platform
+
+    pointer_size = ctypes.sizeof(ctypes.c_void_p)
+    if platform.machine().upper() not in ("AMD64", "X86_64", "X86", "I386", "I686"):
+        return False  # e.g. ARM64: no stub code for it
+    stubs = []
+    for value, argc in _RETIRED_SLOTS:
+        if pointer_size == 8:
+            code = b"\xB8" + struct.pack("<I", value) + b"\xC3"                  # mov eax, v ; ret
+        else:
+            code = b"\xB8" + struct.pack("<I", value) + b"\xC2" + struct.pack("<H", 4 * argc)  # ret n
+        stubs.append(code.ljust(8, b"\xCC"))
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.VirtualAlloc.restype = ctypes.c_void_p
+    kernel32.VirtualAlloc.argtypes = [ctypes.c_void_p, ctypes.c_size_t, wintypes.DWORD, wintypes.DWORD]
+    kernel32.VirtualProtect.argtypes = [ctypes.c_void_p, ctypes.c_size_t, wintypes.DWORD,
+                                        POINTER(wintypes.DWORD)]
+    size = 4096
+    base = kernel32.VirtualAlloc(None, size, 0x3000, 0x04)  # commit+reserve, read/write
+    if not base:
+        return False
+    ctypes.memmove(base, b"".join(stubs), 8 * len(stubs))
+    table = base + 2048
+    packed = struct.pack("<%d%s" % (len(stubs), "Q" if pointer_size == 8 else "I"),
+                         *[base + 8 * index for index in range(len(stubs))])
+    ctypes.memmove(table, packed, len(packed))
+    old = wintypes.DWORD(0)
+    if not kernel32.VirtualProtect(base, size, 0x20, byref(old)):  # execute/read; never freed
+        return False
+    return table
+
+
+def retire(com_pointers):
+    """Make a comtypes COMObject safe to be called after the interpreter is gone.
+
+    ``com_pointers`` are the values of its ``_com_pointers_`` (taken while it
+    was alive). Returns True if the object was retired.
+    """
+    global _retired_vtable
+    if _retired_vtable is None:
+        try:
+            _retired_vtable = _build_retired_vtable()
+        except Exception:
+            log.debug("could not build the retired vtable", exc_info=True)
+            _retired_vtable = False
+    if not _retired_vtable:
+        return False
+    for pointer_to_this in com_pointers:
+        # The server still holds `this`; that memory must outlive the interpreter.
+        ctypes.pythonapi.Py_IncRef(ctypes.py_object(pointer_to_this))
+        this = ctypes.addressof(pointer_to_this.contents)
+        ctypes.c_void_p.from_address(this).value = _retired_vtable
+    return True
+
+
 def _plain(variant):
     return None if variant.vt == VT_ERROR else variant.value
 
 
 class ComDriver:
-    """One live RTD server instance (see rtd_host for the contract)."""
+    """One live RTD server instance (see host.py for the contract)."""
 
     def __init__(self, progid, server=""):
         self.progid = progid
         self._event = UpdateEvent()
+        self._event_pointers = list(self._event._com_pointers_.values())
         try:
             self._server = comtypes.client.CreateObject(
                 progid, machine=server or None, interface=IRtdServer)
@@ -183,8 +290,15 @@ class ComDriver:
 
     def terminate(self):
         server, self._server = self._server, None
-        if server is not None:
-            server.ServerTerminate()
+        try:
+            if server is not None:
+                server.ServerTerminate()
+        finally:
+            del server
+            pointers, self._event_pointers = self._event_pointers, []
+            if pointers and self._event._refcnt.value > 0:
+                # The server kept a reference to the callback object (see retire()).
+                retire(pointers)
 
 
 def _is_elevated():

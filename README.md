@@ -92,6 +92,21 @@ Details, diagnostics and development notes are in [docs/TECHNICAL.md](docs/TECHN
 the version history in [CHANGELOG.md](CHANGELOG.md). Problems and questions:
 [open an issue](https://github.com/andreydani/calc-rtd/issues).
 
+## Also a Python library
+
+The part that talks to RTD servers works on its own, without LibreOffice:
+
+```python
+from calc_rtd import RtdSession
+
+with RtdSession() as rtd:
+    rtd.subscribe("Vendor.ProgID", ["ACME", "LAST"])
+    for update in rtd.updates():
+        print(update.value)
+```
+
+`pip install calc-rtd`, then see [Using RTD servers from Python](docs/PYTHON.md).
+
 ## About
 
 calc-rtd is an independent open-source project under the MIT license. It is not affiliated

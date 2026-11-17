@@ -42,8 +42,8 @@ INTERFACE = {
 
 
 def project_version():
-    """The version lives in one place: src/calc_rtd_bridge/__init__.py."""
-    text = (ROOT / "src" / "calc_rtd_bridge" / "__init__.py").read_text(encoding="utf-8")
+    """The version lives in one place: src/calc_rtd/__init__.py."""
+    text = (ROOT / "src" / "calc_rtd" / "__init__.py").read_text(encoding="utf-8")
     return re.search(r'__version__ = "([^"]+)"', text).group(1)
 
 

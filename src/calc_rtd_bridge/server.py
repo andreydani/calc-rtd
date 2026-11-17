@@ -10,7 +10,7 @@ import threading
 import time
 
 from . import __version__
-from .protocol import MAX_LINE, decode, encode
+from .protocol import MAX_LINE, decode, encode, to_wire
 
 log = logging.getLogger("calc_rtd.server")
 
@@ -40,6 +40,13 @@ class ClientConnection:
         except queue.Full:
             log.warning("client %s is not reading; dropping it", self.address)
             self.close()
+
+    # Hub client interface (see calc_rtd.engine.Hub)
+    def on_update(self, pairs):
+        self.send({"op": "update", "values": [[client_id, to_wire(value)] for client_id, value in pairs]})
+
+    def on_error(self, client_id, message):
+        self.send({"op": "error", "id": client_id, "message": message})
 
     def _writer(self):
         try:

@@ -27,6 +27,9 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install . pytest
+      - name: Install pandas (one job runs the pandas example)
+        if: runner.os == 'Linux' && matrix.python == '3.13'
+        run: python -m pip install pandas
       - name: Build and register the sample RTD server
         if: runner.os == 'Windows'
         shell: pwsh
@@ -66,7 +69,7 @@ jobs:
         run: |
           version="$(python tools/build_oxt.py --print-version)"
           if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::tag $GITHUB_REF_NAME does not match version $version in src/calc_rtd_bridge/__init__.py"
+            echo "::error::tag $GITHUB_REF_NAME does not match version $version in src/calc_rtd/__init__.py"
             exit 1
           fi
       - run: python -m pip install build
@@ -109,6 +112,11 @@ jobs:
           ./samples/rtd-server/build.ps1 -Arch ${{ matrix.arch }}
           dist\calc-rtd-bridge.exe -v monitor "=RTD(CalcRtd.Sample;;counter)" "=RTD(CalcRtd.Sample;;echo;hello)" --seconds 3
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Repeat: a crash at process exit would show up as a non-zero exit code only now and then.
+          foreach ($attempt in 1..6) {
+            dist\calc-rtd-bridge.exe monitor "=RTD(CalcRtd.Sample;;counter)" --seconds 1.5 | Out-Null
+            if ($LASTEXITCODE -ne 0) { Write-Error "attempt $attempt exited with $LASTEXITCODE"; exit 1 }
+          }
       - name: Build extension
         run: python tools/build_oxt.py --bridge-exe dist/calc-rtd-bridge.exe --output oxt/calc-rtd-${{ matrix.label }}.oxt
       - uses: actions/upload-artifact@v4

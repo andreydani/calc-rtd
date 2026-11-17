@@ -16,10 +16,13 @@ For people who want to understand, diagnose or change calc-rtd. End users only n
 - **Extension** (`extension/`): a Python add-in that registers the `RTD` function and returns
   an `XVolatileResult`, Calc's mechanism for values that change on their own. Standard library
   only, so it runs on the Python bundled with LibreOffice.
-- **Bridge** (`src/calc_rtd_bridge/`): a separate process that creates the RTD server through
-  COM and drives it the way Excel does (`ServerStart`, `ConnectData`, `UpdateNotify`,
-  `RefreshData`, `Heartbeat`...). Keeping it outside LibreOffice means it can match the RTD
-  server's bitness (32/64-bit), and a misbehaving server cannot take the spreadsheet down.
+- **Bridge** (`src/calc_rtd_bridge/`): a separate process that serves the extension over a
+  local socket. Keeping it outside LibreOffice means it can match the RTD server's bitness
+  (32/64-bit), and a misbehaving server cannot take the spreadsheet down.
+- **RTD client** (`src/calc_rtd/`): the library the bridge is built on. It creates the RTD
+  server through COM and drives it the way Excel does (`ServerStart`, `ConnectData`,
+  `UpdateNotify`, `RefreshData`, `Heartbeat`...). It knows nothing about LibreOffice and can
+  be used from any Python program: see [PYTHON.md](PYTHON.md).
 
 The protocol between the two is documented in `src/calc_rtd_bridge/protocol.py`; any program
 can be a client of the bridge.
@@ -51,7 +54,8 @@ account can still read it; the token keeps other accounts on the machine out.
 
 ## Checking an RTD server without LibreOffice
 
-`monitor` loads an RTD server directly and prints what Calc would receive:
+`monitor` loads an RTD server directly and prints what Calc would receive (`python -m calc_rtd`
+does the same):
 
 ```bat
 calc-rtd-bridge monitor "=RTD(Vendor.ProgID;;ACME;LAST)" --seconds 30
@@ -86,7 +90,7 @@ The CI uses it to test the COM layer, in 32 and 64 bits, on every commit.
 
 ```bash
 pip install -e . pytest
-pytest                                    # bridge, protocol, RTD host (COM tests need the sample server)
+pytest                                    # client, bridge, examples (COM tests need the sample server)
 python tools/build_oxt.py                 # builds dist/calc-rtd.oxt (no LibreOffice SDK needed)
 unopkg add -f dist/calc-rtd.oxt
 python tests/integration_libreoffice.py   # end to end against a headless LibreOffice
@@ -94,7 +98,7 @@ python tests/integration_libreoffice.py   # end to end against a headless LibreO
 
 `tools/build_oxt.py` writes the UNO type library (`.rdb`) directly in its binary format, so
 `unoidl-write` from the SDK is not required. The project version lives only in
-`src/calc_rtd_bridge/__init__.py`.
+`src/calc_rtd/__init__.py`.
 
 Releases: bump the version, update `CHANGELOG.md`, then create a GitHub release with the tag
 `vX.Y.Z`. The workflow attaches the extensions and publishes the package to PyPI.

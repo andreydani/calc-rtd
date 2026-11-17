@@ -13,9 +13,13 @@ import queue
 import threading
 import time
 
-from .protocol import make_key, to_wire
+log = logging.getLogger("calc_rtd.engine")
 
-log = logging.getLogger("calc_rtd.core")
+
+def make_key(progid, server, topics) -> tuple:
+    """Normalised identity of an RTD topic; ProgIDs are case-insensitive."""
+    return (str(progid).strip().lower(), str(server or "").strip().lower(),
+            tuple(str(t) for t in topics))
 
 _UNSET = object()
 
@@ -40,7 +44,12 @@ class Topic:
 class Hub:
     """Thread-safe registry of topics and their subscribers.
 
-    A *client* is any object with ``send(message: dict)``.
+    A *client* is any object with two methods, called from arbitrary threads:
+
+        on_update(pairs)            pairs = [(client_id, value), ...]
+        on_error(client_id, text)
+
+    ``client_id`` is whatever the client passed to ``subscribe``.
     """
 
     def __init__(self):
@@ -54,7 +63,7 @@ class Hub:
     # -- called from client threads ------------------------------------
     def subscribe(self, client, client_id, progid, server, topics):
         if not topics:
-            client.send({"op": "error", "id": client_id, "message": "at least one topic is required"})
+            client.on_error(client_id, "at least one topic is required")
             return
         key = make_key(progid, server, topics)
         with self._lock:
@@ -74,9 +83,9 @@ class Hub:
         if created:
             self.commands.put(("connect", topic))
         elif error is not None:
-            client.send({"op": "error", "id": client_id, "message": error})
+            client.on_error(client_id, error)
         elif value is not _UNSET:
-            client.send({"op": "update", "values": [[client_id, value]]})
+            client.on_update([(client_id, value)])
 
     def unsubscribe(self, client, client_id):
         with self._lock:
@@ -107,15 +116,14 @@ class Hub:
                 topic = self._by_id.get(topic_id)
                 if topic is None:
                     continue
-                value = to_wire(value)
                 if topic.error is None and topic.value is not _UNSET \
                         and type(topic.value) is type(value) and topic.value == value:
-                    continue
+                    continue  # RTD servers resend unchanged values; subscribers only want changes
                 topic.value, topic.error = value, None
                 for client, client_id in topic.subs:
-                    outgoing.setdefault(client, []).append([client_id, value])
+                    outgoing.setdefault(client, []).append((client_id, value))
         for client, values in outgoing.items():
-            client.send({"op": "update", "values": values})
+            client.on_update(values)
 
     def fail(self, topic_id, message):
         with self._lock:
@@ -125,7 +133,7 @@ class Hub:
             topic.error = message
             targets = list(topic.subs)
         for client, client_id in targets:
-            client.send({"op": "error", "id": client_id, "message": message})
+            client.on_error(client_id, message)
 
     def topic_count(self):
         with self._lock:
