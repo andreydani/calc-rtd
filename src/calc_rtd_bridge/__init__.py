@@ -1,3 +1,8 @@
-"""calc-rtd bridge: hosts Excel RTD servers and feeds LibreOffice Calc."""
+"""calc-rtd bridge: serves RTD data to the LibreOffice Calc extension.
 
-__version__ = "0.1.1"
+The RTD client itself lives in the ``calc_rtd`` package.
+"""
+
+from calc_rtd import __version__
+
+__all__ = ["__version__"]

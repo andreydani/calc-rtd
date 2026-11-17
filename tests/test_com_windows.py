@@ -47,3 +47,65 @@ def test_unknown_progid_is_reported():
     completed, values = run_monitor("=RTD(CalcRtd.DoesNotExist;;x)", "--seconds", "1")
     assert completed.returncode == 1
     assert "ERROR" in completed.stdout and "not registered" in completed.stdout
+
+
+# -- the public API, in process ------------------------------------------------
+def collect_counter(rtd, counter, wanted=5, timeout=10):
+    values = []
+    for update in rtd.updates(timeout=timeout):
+        assert update.error is None, update.error
+        if update.subscription is counter:
+            values.append(update.value)
+            if len(values) >= wanted:
+                break
+    return values
+
+
+def test_session_receives_updates_from_a_real_server():
+    from calc_rtd import RtdSession
+
+    with RtdSession(throttle=0.1) as rtd:
+        assert rtd.com_available
+        counter = rtd.subscribe("CalcRtd.Sample", ["counter"])
+        echo = rtd.subscribe_formula('=RTD("CalcRtd.Sample";;"echo";"hello")')
+        assert echo.wait(timeout=15) == "hello"
+        values = collect_counter(rtd, counter)
+        assert len(values) == 5 and values == sorted(values) and values[-1] > values[0]
+        assert isinstance(counter.value, float)
+
+    # A second session creates a fresh COM apartment and a fresh server instance.
+    with RtdSession(throttle=0.1) as rtd:
+        counter = rtd.subscribe("CalcRtd.Sample", ["counter"])
+        assert counter.wait(timeout=15) == 0.0
+        assert len(collect_counter(rtd, counter, wanted=3)) == 3
+
+
+def test_session_used_from_a_worker_thread():
+    import threading
+
+    from calc_rtd import RtdSession
+
+    result = {}
+
+    def work():
+        try:
+            with RtdSession(throttle=0.1) as rtd:
+                counter = rtd.subscribe("CalcRtd.Sample", ["counter"])
+                result["values"] = collect_counter(rtd, counter, wanted=3)
+        except Exception as exc:  # pragma: no cover - reported by the assert below
+            result["error"] = exc
+
+    worker = threading.Thread(target=work)
+    worker.start()
+    worker.join(40)
+    assert not worker.is_alive() and "error" not in result, result
+    assert len(result["values"]) == 3
+
+
+def test_session_reports_unregistered_server():
+    from calc_rtd import RtdError, RtdSession
+
+    with RtdSession() as rtd:
+        missing = rtd.subscribe("CalcRtd.DoesNotExist", ["x"])
+        with pytest.raises(RtdError, match="not registered"):
+            missing.wait(timeout=15)

@@ -1,4 +1,4 @@
-"""COM side of the bridge (Windows only): talks IRtdServer like Excel does.
+"""COM side (Windows only): talks IRtdServer the way Excel does.
 
 The two interfaces below are transcribed from Excel's type library so that
 Excel itself does not have to be installed to load an in-process RTD
@@ -9,7 +9,8 @@ for marshalling, which installing Excel does.)
     IRTDUpdateEvent  {A43788C1-D91B-11D3-8F39-00C04F3651B8}
 
 Everything here must run on one thread: a single-threaded apartment whose
-message loop is pumped by ``pump()``.
+message loop is pumped by ``pump()``.  Call ``enter_apartment()`` on that
+thread first and ``leave_apartment()`` when done.
 """
 
 from __future__ import annotations
@@ -28,7 +29,7 @@ from comtypes import COMMETHOD, GUID, STDMETHOD, COMError, COMObject, dispid  # 
 from comtypes.automation import IDispatch, VARIANT, VARIANT_BOOL  # noqa: E402
 from comtypes.safearray import _midlSAFEARRAY  # noqa: E402
 
-from .rtd_host import pairs_from_refresh  # noqa: E402
+from .host import pairs_from_refresh  # noqa: E402
 
 log = logging.getLogger("calc_rtd.com")
 
@@ -40,6 +41,15 @@ CO_E_CLASSSTRING = -2147221005
 VT_ERROR = 10
 
 _VariantArray = _midlSAFEARRAY(VARIANT)
+
+
+def enter_apartment():
+    """Make the calling thread a COM single-threaded apartment."""
+    comtypes.CoInitializeEx(comtypes.COINIT_APARTMENTTHREADED)
+
+
+def leave_apartment():
+    comtypes.CoUninitialize()
 
 
 class IRTDUpdateEvent(IDispatch):
@@ -126,7 +136,7 @@ def _plain(variant):
 
 
 class ComDriver:
-    """One live RTD server instance (see rtd_host for the contract)."""
+    """One live RTD server instance (see host.py for the contract)."""
 
     def __init__(self, progid, server=""):
         self.progid = progid

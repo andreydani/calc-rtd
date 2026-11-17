@@ -2,17 +2,20 @@ class Recorder:
     """A hub client that just records what it is sent."""
 
     def __init__(self):
-        self.messages = []
+        self.updates = []
+        self.failures = []
 
-    def send(self, message):
-        self.messages.append(message)
+    def on_update(self, pairs):
+        self.updates.extend(pairs)
+
+    def on_error(self, client_id, message):
+        self.failures.append({"id": client_id, "message": message})
 
     def values(self, client_id):
-        return [v for m in self.messages if m["op"] == "update"
-                for i, v in m["values"] if i == client_id]
+        return [value for i, value in self.updates if i == client_id]
 
     def errors(self):
-        return [m for m in self.messages if m["op"] == "error"]
+        return self.failures
 
 
 class FakeDriver:

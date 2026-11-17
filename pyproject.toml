@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "calc-rtd"
 dynamic = ["version"]
-description = "Use Excel RTD (RealTimeData) servers from LibreOffice Calc: the bridge that hosts the RTD server"
+description = "Use Excel RTD (RealTimeData) servers from Python and from LibreOffice Calc"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.9"
@@ -27,7 +27,7 @@ Issues = "https://github.com/andreydani/calc-rtd/issues"
 calc-rtd-bridge = "calc_rtd_bridge.cli:main"
 
 [tool.setuptools.dynamic]
-version = { attr = "calc_rtd_bridge.__version__" }
+version = { attr = "calc_rtd.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -19,8 +19,8 @@ from __future__ import annotations
 import logging
 import time
 
-from .core import Backend
-from .protocol import SIM_PROGID
+from .engine import Backend
+from .sim import SIM_PROGID
 
 log = logging.getLogger("calc_rtd.host")
 

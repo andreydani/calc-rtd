@@ -16,8 +16,9 @@ from __future__ import annotations
 import random
 import time
 
-from .core import Backend
-from .protocol import SIM_PROGID
+from .engine import Backend
+
+SIM_PROGID = "calcrtd.sim"
 
 
 def _number(args, index, default):

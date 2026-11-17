@@ -27,6 +27,9 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install . pytest
+      - name: Install pandas (one job runs the pandas example)
+        if: runner.os == 'Linux' && matrix.python == '3.13'
+        run: python -m pip install pandas
       - name: Build and register the sample RTD server
         if: runner.os == 'Windows'
         shell: pwsh
@@ -66,7 +69,7 @@ jobs:
         run: |
           version="$(python tools/build_oxt.py --print-version)"
           if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::tag $GITHUB_REF_NAME does not match version $version in src/calc_rtd_bridge/__init__.py"
+            echo "::error::tag $GITHUB_REF_NAME does not match version $version in src/calc_rtd/__init__.py"
             exit 1
           fi
       - run: python -m pip install build
