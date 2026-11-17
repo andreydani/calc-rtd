@@ -204,6 +204,9 @@ value.
 - Closing the session disconnects every topic and calls `ServerTerminate`, as Excel does when
   the last formula goes away.
 - If a server stops answering its heartbeat, it is restarted and its topics are reconnected.
+- Servers written in .NET keep a reference to the callback object until the process exits.
+  When a server is terminated that object is switched to native no-op functions, so those late
+  calls cannot reach a Python interpreter that is shutting down.
 
 Limitations:
 
