@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>calc-rtd for Python - read Excel RTD servers without Excel</title>
+<meta name="description" content="Python library to receive real-time data from Excel RTD (RealTimeData) servers without Excel: iterator, callbacks or latest-value polling.">
+<meta property="og:title" content="calc-rtd for Python - read Excel RTD servers without Excel">
+<meta property="og:description" content="Python library to receive real-time data from Excel RTD (RealTimeData) servers without Excel: iterator, callbacks or latest-value polling.">
+<meta property="og:image" content="https://andreydani.github.io/calc-rtd/logo.png">
+<link rel="icon" href="../logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="bar">
+      <a class="brand" href="../"><img src="../logo.svg" alt="">calc-rtd</a>
+      <nav><a href="../">For LibreOffice Calc</a><a href="https://github.com/andreydani/calc-rtd">GitHub</a><a class="lang" href="../pt-br/python/">Português</a></nav>
+    </div>
+    <div class="hero">
+      <div>
+        <h1>Excel RTD servers, in <span>Python</span></h1>
+        <p class="lead">Receive real-time data from RTD (RealTimeData) servers in any Python program, without Excel. The same engine that powers calc-rtd for LibreOffice Calc, usable on its own.</p>
+        <pre class="formula install"><code>pip install calc-rtd</code></pre>
+        <div class="cta"><a class="btn primary" href="https://github.com/andreydani/calc-rtd/blob/main/docs/PYTHON.md">Read the guide</a><a class="btn ghost" href="https://pypi.org/project/calc-rtd/">View on PyPI</a></div>
+        <small>Free, MIT license. Windows for real RTD servers; the simulated source runs anywhere. Python 3.9+.</small>
+      </div>
+      <div class="codecard"><pre class="formula"><code>from calc_rtd import RtdSession
+
+with RtdSession() as rtd:
+    rtd.subscribe(&quot;Vendor.ProgID&quot;, [&quot;ACME&quot;, &quot;LAST&quot;])
+    for update in rtd.updates():
+        print(update.value)</code></pre></div>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>Three ways to receive data</h2>
+    <p class="sub">Pick the one that fits your program. They can be mixed in the same session.</p>
+    <ol class="steps code"><li><h3>Iterate over updates</h3><p>A loop that gets every change as it arrives.</p><pre class="formula"><code>for update in rtd.updates(timeout=30):
+    if update.error:
+        print(&quot;problem:&quot;, update.error)
+    else:
+        print(update.value)</code></pre></li><li><h3>Read the latest value</h3><p>Each subscription keeps its most recent value.</p><pre class="formula"><code>acme = rtd.subscribe(&quot;calcrtd.sim&quot;, [&quot;walk&quot;, &quot;ACME&quot;, 38.5])
+acme.wait(timeout=10)      # first value
+print(acme.value)          # always the latest</code></pre></li><li><h3>Callbacks</h3><p>A function called for every update of one topic.</p><pre class="formula"><code>def on_price(update):
+    if update.value &gt; 40:
+        print(&quot;ACME above 40:&quot;, update.value)
+
+rtd.subscribe(&quot;calcrtd.sim&quot;, [&quot;walk&quot;, &quot;ACME&quot;, 38.5],
+              callback=on_price)
+rtd.run_for(60)</code></pre></li></ol>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap cols">
+    <div>
+      <h2>Try it without any RTD server</h2>
+      <p>The ProgID <code>calcrtd.sim</code> is a simulated source built into the library: a clock, counters, random numbers and random walks. Every example uses it by default, so you can run them on any machine, then switch to your vendor's ProgID and topics.</p>
+      <pre class="formula"><code>rtd.subscribe(&quot;calcrtd.sim&quot;, [&quot;clock&quot;])</code></pre>
+    </div>
+    <div>
+      <h2>Check a server from the command line</h2>
+      <p>Paste a formula that works in Excel. It prints every update and exits with code 0 if any arrived:</p>
+      <pre class="formula"><code>python -m calc_rtd &quot;=RTD(Vendor.ProgID;;ACME;LAST)&quot; --seconds 30</code></pre>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap cols">
+    <div>
+      <h2>Recipes</h2>
+      <p class="sub">Complete scripts, run by the project's tests on every commit.</p>
+      <table class="plain"><tr><td><a href="https://github.com/andreydani/calc-rtd/blob/main/examples/print_updates.py"><code>print_updates.py</code></a></td><td>Print every update of formulas given on the command line.</td></tr><tr><td><a href="https://github.com/andreydani/calc-rtd/blob/main/examples/log_to_csv.py"><code>log_to_csv.py</code></a></td><td>Append time, topic and value to a CSV file.</td></tr><tr><td><a href="https://github.com/andreydani/calc-rtd/blob/main/examples/latest_values.py"><code>latest_values.py</code></a></td><td>Poll the latest values once a second.</td></tr><tr><td><a href="https://github.com/andreydani/calc-rtd/blob/main/examples/alert_callback.py"><code>alert_callback.py</code></a></td><td>React to a value with a callback.</td></tr><tr><td><a href="https://github.com/andreydani/calc-rtd/blob/main/examples/to_pandas.py"><code>to_pandas.py</code></a></td><td>Collect updates into a pandas DataFrame, one row per second.</td></tr></table>
+    </div>
+    <div>
+      <h2>Good to know</h2>
+      <ul class="notes"><li><b>Windows and bitness.</b> RTD servers are COM components. When the server is a DLL, use a Python with the same bitness (32/64-bit) as the Excel it was installed for.</li><li><b>Not elevated.</b> Run your program at the same privilege level as the application that feeds the RTD server.</li><li><b>Threads.</b> A session runs the servers on its own background thread, so you can use it from any thread of your program.</li><li><b>Some servers only accept Excel.</b> Vendors may tie their RTD server to their own Excel add-in.</li><li><b>Your data vendor's terms of use still apply.</b> Taking data out of a terminal into your own programs is often more restricted than displaying it in a spreadsheet.</li></ul>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p><a href="https://github.com/andreydani/calc-rtd">Source code</a> &middot; <a href="https://github.com/andreydani/calc-rtd/issues">Report a problem</a> &middot; <a href="https://github.com/andreydani/calc-rtd/blob/main/docs/PYTHON.md">Full Python guide</a></p>
+    <p>calc-rtd is an independent open-source project (MIT license), not affiliated with or endorsed by Microsoft or The Document Foundation. Microsoft and Excel are trademarks of the Microsoft group of companies.</p>
+  </div>
+</footer>
+</body>
+</html>
