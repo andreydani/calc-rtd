@@ -67,6 +67,10 @@ End to end against LibreOffice (Linux, needs `python3-uno` and the extension ins
 - **`=_xlfn.RTD(...)`**: cells copied from Excel arrive like this and show `#NAME?`. The alias
   `xlfnRtd` exists but Calc does not re-parse pasted text; the documented workaround is Find &
   Replace. Accepted as a known limitation.
+- **LibreOffice's `PYTHONPATH`**: LibreOffice prepends its bundled Python's library folders to
+  `PYTHONPATH` in its own process. A pip-installed bridge inheriting it dies on start-up, so the
+  extension starts the bridge without `PYTHONPATH`/`PYTHONHOME`. The end-to-end test reproduces
+  it with a poisoned `PYTHONPATH`. Start attempts and bridge output go to `bridge.log`.
 - **Extension auto-start**: while a bridge it just launched is starting, cells show `#N/A`, not
   "bridge offline" (20 s grace). The bridge exits after `--idle-exit` seconds without an
   authenticated client.

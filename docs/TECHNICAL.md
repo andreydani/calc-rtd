@@ -37,6 +37,14 @@ on `PATH`. To see its log, start it before LibreOffice:
 calc-rtd-bridge -v serve
 ```
 
+Every start attempt, and everything the bridge prints, is appended to `bridge.log` next to the
+token (`%APPDATA%\calc-rtd\bridge.log`; moved to `bridge.log.1` beyond 1 MB). When it cannot
+find a bridge to start, the extension shows `#RTD: bridge not found` instead of
+`#RTD: bridge offline`.
+
+The bridge is started without `PYTHONPATH` and `PYTHONHOME`: LibreOffice sets `PYTHONPATH` for
+its own Python, and a separately installed Python that inherits it fails to start.
+
 | Variable | Meaning |
 |---|---|
 | `CALC_RTD_PORT` | TCP port on 127.0.0.1 (default 47365) |

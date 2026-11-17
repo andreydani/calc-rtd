@@ -11,6 +11,7 @@ the system one with python3-uno).
 
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -155,10 +156,18 @@ def manual_bridge_session(env):
         office.close()
 
 
-def autostart_session(env):
+def autostart_session(env, scratch):
     print("-- bridge started by the extension")
     check("no bridge is running beforehand", not port_open())
-    office = Office(dict(env, CALC_RTD_IDLE_EXIT="3"))
+    # LibreOffice on Windows puts its own Python's library folders in PYTHONPATH, and the
+    # bridge used to inherit them. Reproduce that with a folder whose calc_rtd_bridge
+    # package cannot be imported: the bridge must not see it.
+    poison = os.path.join(scratch, "poison")
+    os.makedirs(os.path.join(poison, "calc_rtd_bridge"))
+    with open(os.path.join(poison, "calc_rtd_bridge", "__init__.py"), "w") as handle:
+        handle.write("raise ImportError('PYTHONPATH from LibreOffice leaked into the bridge')\n")
+    office = Office(dict(env, CALC_RTD_IDLE_EXIT="3",
+                         PYTHONPATH=os.pathsep.join([poison, env.get("PYTHONPATH", "")])))
     try:
         office.formula("A1", '=RTD("calcrtd.sim";;"counter";0.2)')
         office.sheet.getCellRangeByName("A2").FormulaLocal = '=_xlfn.RTD("calcrtd.sim";;"echo";"typed")'
@@ -179,6 +188,31 @@ def autostart_session(env):
         office.close()
     time.sleep(8)  # CALC_RTD_IDLE_EXIT=3 plus margin
     check("auto-started bridge exits after LibreOffice closes", not port_open())
+    log = open(os.path.join(scratch, "bridge.log"), encoding="utf-8", errors="replace").read()
+    check("bridge.log records the start and the bridge's own output",
+          "extension: starting bridge:" in log and "listening on" in log, repr(log[-300:]))
+
+
+def bridge_not_found_session(env, scratch):
+    print("-- no bridge available")
+    program = shutil.which("calc-rtd-bridge")
+    office_dir = os.path.dirname(shutil.which("soffice") or "")
+    if not program or os.path.dirname(program) == office_dir:
+        print("skip  calc-rtd-bridge and soffice share a folder; cannot hide one from PATH")
+        return
+    hidden = os.path.dirname(program)
+    path = os.pathsep.join(d for d in env["PATH"].split(os.pathsep) if os.path.normpath(d) != os.path.normpath(hidden))
+    office = Office(dict(env, PATH=path))
+    try:
+        office.formula("A1", '=RTD("calcrtd.sim";;"clock")')
+        office.doc.calculateAll()
+        time.sleep(6)
+        check("cell says the bridge was not found", office.cell("A1")[0] == "#RTD: bridge not found",
+              repr(office.cell("A1")[0]))
+    finally:
+        office.close()
+    log = open(os.path.join(scratch, "bridge.log"), encoding="utf-8", errors="replace").read()
+    check("bridge.log explains why", "calc-rtd-bridge not found on PATH" in log)
 
 
 def main():
@@ -188,7 +222,9 @@ def main():
                    PYTHONPATH=os.path.join(ROOT, "src"))
         manual_bridge_session(env)
         time.sleep(1)
-        autostart_session(env)
+        autostart_session(env, scratch)
+        time.sleep(1)
+        bridge_not_found_session(env, scratch)
     print("\n%s" % ("ALL PASSED" if not failures else "FAILED: %s" % ", ".join(failures)))
     return 1 if failures else 0
 
