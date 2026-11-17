@@ -45,3 +45,26 @@ def test_alert_callback():
 def test_to_pandas():
     out = run("to_pandas.py", "--seconds", "3")
     assert "ACME" in out and "GLOBEX" in out and "updates" in out
+
+
+def test_snippets_in_the_python_guide_are_valid_python():
+    import re
+
+    guide = (EXAMPLES.parent / "docs" / "PYTHON.md").read_text(encoding="utf-8")
+    snippets = re.findall(r"```python\n(.*?)```", guide, re.S)
+    assert len(snippets) >= 6
+    for snippet in snippets:
+        compile(snippet, "PYTHON.md", "exec")
+
+
+def test_first_snippet_of_the_guide_runs():
+    """The opening example, pointed at the simulated source."""
+    from calc_rtd import RtdSession
+
+    with RtdSession() as rtd:
+        rtd.subscribe("calcrtd.sim", ["echo", "LAST"])
+        for update in rtd.updates(timeout=2):
+            assert (update.subscription.topics, update.value) == (("echo", "LAST"), "LAST")
+            break
+        else:
+            raise AssertionError("no update")

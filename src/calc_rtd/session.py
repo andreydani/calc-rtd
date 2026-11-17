@@ -125,6 +125,7 @@ class RtdSession:
         self._stop = threading.Event()
         self._started = threading.Event()
         self._thread: Optional[threading.Thread] = None
+        self._runtime = None
         self._closed = False
         self.dropped = 0  #: updates discarded because the queue was full
         self.com_available = False  #: True when real (COM) RTD servers can be hosted
@@ -136,6 +137,13 @@ class RtdSession:
             if self._closed:
                 raise RuntimeError("this RtdSession was closed; create a new one")
             if self._thread is None:
+                if self._custom_backends is None:
+                    # Created here, on the caller's thread, on purpose: this is where the COM
+                    # library gets imported. Importing it initialises COM for the importing
+                    # thread, and the session thread must own exactly one initialisation so
+                    # that leaving it really tears its apartment down (see _run).
+                    self._runtime = Runtime(self._throttle, self._simulated)
+                    self.com_available = self._runtime.com
                 self._thread = threading.Thread(target=self._run, name="calc-rtd-session", daemon=True)
                 self._thread.start()
         self._started.wait()
@@ -160,15 +168,13 @@ class RtdSession:
         self.close()
 
     def _run(self):
-        runtime = None
+        runtime = self._runtime
         try:
-            if self._custom_backends is not None:
+            if runtime is None:
                 backends, wait = self._custom_backends, None
             else:
-                runtime = Runtime(self._throttle, self._simulated)
                 runtime.enter()
                 backends, wait = runtime.backends, runtime.wait
-                self.com_available = runtime.com
             engine = Engine(self._hub, backends, wait=wait)
         except Exception:
             log.exception("could not start the RTD session thread")
@@ -178,6 +184,10 @@ class RtdSession:
         try:
             engine.run(self._stop)
         finally:
+            # Drop every reference to the servers, then leave the apartment while the
+            # interpreter is still fully alive: the servers release our callback objects
+            # at that point, not at some arbitrary moment during process exit.
+            del engine, backends
             if runtime is not None:
                 try:
                     runtime.leave()

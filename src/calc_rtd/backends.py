@@ -49,5 +49,7 @@ class Runtime:
         if self._driver is not None:
             import gc
 
+            self.backends = []
             gc.collect()  # release COM pointers before the apartment goes away
+            self._driver.pump(0.05)  # let pending cross-apartment releases arrive
             self._driver.leave_apartment()
