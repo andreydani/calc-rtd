@@ -43,6 +43,16 @@ def test_updates_flow_from_a_real_rtd_server():
     assert "terminated RTD server CalcRtd.Sample" in report
 
 
+@pytest.mark.parametrize("attempt", range(6))
+def test_process_exits_cleanly_after_hosting_a_dotnet_server(attempt):
+    """The server keeps a reference to our callback until its runtime shuts down, at process
+    exit. That used to crash the interpreter now and then, hence the repetitions."""
+    completed, values = run_monitor("=RTD(CalcRtd.Sample;;counter)", "--seconds", "1.5")
+    assert completed.returncode == 0, "exit code 0x%08X\n%s" % (
+        completed.returncode & 0xFFFFFFFF, completed.stdout[-600:] + completed.stderr[-1200:])
+    assert len(values["CalcRtd.Sample | counter"]) >= 2
+
+
 def test_unknown_progid_is_reported():
     completed, values = run_monitor("=RTD(CalcRtd.DoesNotExist;;x)", "--seconds", "1")
     assert completed.returncode == 1

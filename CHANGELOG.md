@@ -9,6 +9,9 @@
   `calc-rtd-bridge monitor`).
 - Values keep their Python type in the library (`datetime`, `Decimal`); only the bridge
   converts them for the spreadsheet.
+- Fixed: a process that had hosted a .NET RTD server could crash while exiting (seen on
+  Python 3.13). The callback object handed to a server is now retired safely when the server
+  is terminated.
 - Project website at https://andreydani.github.io/calc-rtd/ (English and Portuguese).
 - README rewritten for spreadsheet users; technical material moved to `docs/TECHNICAL.md`.
 - The extension now declares LibreOffice 6.4 as its minimum version (it was 4.0, which the
