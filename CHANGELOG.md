@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+- Fixed: with `calc-rtd.oxt` (the variant without an executable) the extension could not start
+  a pip-installed bridge on Windows, and cells stayed at `#RTD: bridge offline`. LibreOffice
+  sets `PYTHONPATH` for its own Python and the bridge inherited it; it is now started without it.
+- The extension records every attempt to start the bridge, and the bridge's own output, in
+  `bridge.log` next to the token (`%APPDATA%\calc-rtd\bridge.log` on Windows).
+- New cell message `#RTD: bridge not found` when there is no bridge to start.
+
 ## 0.2.0
 
 - **Python library.** The RTD client is now a package of its own, `calc_rtd`, with a public

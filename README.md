@@ -57,7 +57,11 @@ More built-in test formulas:
 | Cell shows | Meaning |
 |---|---|
 | `#N/A` | Waiting for the first value, as in Excel. The very first start takes a few seconds. |
-| `#RTD: bridge offline` | The helper program could not be started. Check that your antivirus did not block `calc-rtd-bridge.exe`. |
+| `#RTD: bridge offline` | The helper program could not be started or reached. Check that your antivirus did not block `calc-rtd-bridge.exe`. |
+| `#RTD: bridge not found` | Only with `calc-rtd.oxt` (no executable inside): `calc-rtd-bridge` was not found. Install it with `pip install calc-rtd` and restart LibreOffice. |
+
+When the helper program does not start, `%APPDATA%\calc-rtd\bridge.log` says what was tried and
+what went wrong.
 | `#RTD: ...` | A message from the RTD server or about it, for example an unknown ProgID. |
 | `#NAME?` | The extension is not installed, or the formula was copied from Excel (see below). |
 

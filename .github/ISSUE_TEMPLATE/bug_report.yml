@@ -106,4 +106,6 @@ body:
     id: extra
     attributes:
       label: Anything else?
-      description: Screenshots of the error, antivirus warnings, other extensions installed...
+      description: |
+        If the helper program does not start, the end of `%APPDATA%\calc-rtd\bridge.log` helps.
+        Screenshots of the error, antivirus warnings, other extensions installed...

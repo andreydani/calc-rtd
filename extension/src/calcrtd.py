@@ -9,7 +9,8 @@ Standard library only - it runs on the Python bundled with LibreOffice.
 
 If the bridge is not running the extension starts it, hidden, trying in order:
 the command in CALC_RTD_BRIDGE_CMD, the executable bundled with the extension
-(bridge/calc-rtd-bridge.exe) and ``calc-rtd-bridge`` found on PATH.
+(bridge/calc-rtd-bridge.exe) and ``calc-rtd-bridge`` found on PATH.  What it
+tried, and whatever the bridge prints, goes to bridge.log next to the token.
 
 Environment variables (optional):
     CALC_RTD_HOST / CALC_RTD_PORT   where the bridge listens (127.0.0.1:47365)
@@ -41,6 +42,9 @@ SERVICE_NAMES = ("com.sun.star.sheet.AddIn",)
 HOST = os.environ.get("CALC_RTD_HOST", "127.0.0.1")
 PORT = int(os.environ.get("CALC_RTD_PORT", "47365"))
 OFFLINE = "#RTD: bridge offline"
+NOT_FOUND = "#RTD: bridge not found"
+OFFLINE_TEXTS = (OFFLINE, NOT_FOUND)
+LOG_LIMIT = 1 << 20  # bytes; bridge.log is moved to bridge.log.1 beyond this
 RETRY_SECONDS = 2.0
 SPAWN_INTERVAL = 30.0
 STARTUP_GRACE = 20.0  # show #N/A, not "offline", while a freshly started bridge comes up
@@ -57,6 +61,45 @@ def _token_path():
     else:
         base = os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config")
     return os.path.join(base, "calc-rtd", "token")
+
+
+def _log_path():
+    return os.path.join(os.path.dirname(_token_path()), "bridge.log")
+
+
+def _open_log():
+    """bridge.log opened for appending (binary), or None. Rotated at LOG_LIMIT."""
+    path = _log_path()
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        if os.path.exists(path) and os.path.getsize(path) > LOG_LIMIT:
+            os.replace(path, path + ".1")
+        return open(path, "ab")
+    except OSError:
+        return None
+
+
+def _log(handle, text):
+    if handle is not None:
+        try:
+            line = "%s extension: %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), text)
+            handle.write(line.encode("utf-8", "replace"))
+            handle.flush()
+        except OSError:
+            pass
+
+
+def _bridge_environment():
+    """The environment for the bridge: ours, minus what LibreOffice set for its own Python.
+
+    LibreOffice prepends its bundled Python's library folders to PYTHONPATH in its
+    process environment. A separately installed Python that inherits that variable
+    loads the wrong standard library and dies on start-up.
+    """
+    env = dict(os.environ)
+    for name in ("PYTHONPATH", "PYTHONHOME"):
+        env.pop(name, None)
+    return env
 
 
 def _load_or_create_token():
@@ -160,6 +203,7 @@ class BridgeLink(threading.Thread):
         self._last_spawn = 0.0
         self._starting_until = 0.0
         self._offline = False
+        self._offline_text = OFFLINE
 
     # -- called from Calc's thread -----------------------------------------
     def result_for(self, progid, server, topics):
@@ -176,7 +220,7 @@ class BridgeLink(threading.Thread):
                               "server": server, "topics": list(topics)}
             if self._sock is None:
                 if self._offline:
-                    result.value = OFFLINE
+                    result.value = self._offline_text
             else:
                 self._send(result.request)
         return result
@@ -223,7 +267,7 @@ class BridgeLink(threading.Thread):
                     for result in pending:
                         self._send(result.request)
                 for result in pending:
-                    if result.value == OFFLINE:
+                    if result.value in OFFLINE_TEXTS:
                         result.set(None)
                 self._read(sock)
             except (OSError, ValueError):
@@ -241,9 +285,10 @@ class BridgeLink(threading.Thread):
     def _mark_offline(self):
         with self._lock:
             self._offline = True
+            text = self._offline_text
             stale = list(self._by_id.values())
         for result in stale:
-            result.set(OFFLINE)
+            result.set(text)
 
     def _read(self, sock):
         buffer = b""
@@ -275,18 +320,29 @@ class BridgeLink(threading.Thread):
         now = time.monotonic()
         if self._last_spawn and now - self._last_spawn < SPAWN_INTERVAL:
             return
-        command = _bridge_command()
-        if not command:
-            return
         self._last_spawn = now
+        command = _bridge_command()
+        log = _open_log()
         try:
+            if not command:
+                if os.environ.get("CALC_RTD_AUTOSTART", "1") != "0":
+                    self._offline_text = NOT_FOUND
+                    _log(log, "no bridge to start: none bundled, CALC_RTD_BRIDGE_CMD not set and "
+                              "calc-rtd-bridge not found on PATH")
+                return
+            self._offline_text = OFFLINE
             _load_or_create_token()  # make sure the file exists before the bridge reads it
-            subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL, close_fds=True,
+            _log(log, "starting bridge: %s" % subprocess.list2cmdline(command))
+            output = log if log is not None else subprocess.DEVNULL
+            subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=output, stderr=output,
+                             close_fds=True, env=_bridge_environment(),
                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             self._starting_until = now + STARTUP_GRACE
-        except Exception:
-            pass
+        except Exception as exc:
+            _log(log, "could not start the bridge: %s: %s" % (type(exc).__name__, exc))
+        finally:
+            if log is not None:
+                log.close()  # the bridge keeps its own handle
 
 
 _link = None
