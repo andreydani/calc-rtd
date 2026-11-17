@@ -1,0 +1,109 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem.
+
+        **Please do not paste** market data, prices, account numbers, passwords, licence keys or
+        anything else your data vendor considers confidential. A ProgID and topic names are fine.
+
+        Two quick checks that solve many problems:
+        - LibreOffice and the bridge are **not** started with "Run as administrator".
+        - The test formula `=RTD("calcrtd.sim";;"clock")` shows the time ticking.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what you got instead.
+      placeholder: |
+        I typed =RTD("Vendor.ProgID";;"ACME";"LAST") and the cell shows ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: used
+    attributes:
+      label: What are you using?
+      options:
+        - LibreOffice extension, calc-rtd-win64.oxt
+        - LibreOffice extension, calc-rtd-win32.oxt
+        - LibreOffice extension, calc-rtd.oxt (Python-only)
+        - Python library (pip install calc-rtd)
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: calc-rtd version
+      description: Tools > Extensions in LibreOffice, or `python -m calc_rtd --version`.
+      placeholder: "0.2.0"
+    validations:
+      required: true
+
+  - type: input
+    id: libreoffice
+    attributes:
+      label: LibreOffice version
+      description: Help > About LibreOffice. Leave empty if you only use the Python library.
+      placeholder: "24.8.3"
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 23H2, 64-bit"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: server-bitness
+    attributes:
+      label: Is the Excel that your RTD server works with 32-bit or 64-bit?
+      description: In Excel, File > Account > About Excel.
+      options:
+        - 64-bit
+        - 32-bit
+        - I don't know
+        - Not relevant (simulated source only)
+
+  - type: textarea
+    id: formula
+    attributes:
+      label: The formula
+      description: Exactly as it works in Excel, if it does. Replace anything confidential.
+      render: text
+      placeholder: =RTD("Vendor.ProgID";;"ACME";"LAST")
+
+  - type: textarea
+    id: monitor
+    attributes:
+      label: Output of the monitor command
+      description: |
+        This loads the RTD server without LibreOffice and is the most useful piece of
+        information. Keep the application that feeds your RTD server open, open a normal
+        (not administrator) PowerShell window and use your own formula.
+
+        With the win64 or win32 extension, the program is inside LibreOffice's profile:
+
+        ```
+        $bridge = Get-ChildItem "$env:APPDATA\LibreOffice" -Recurse -Filter calc-rtd-bridge.exe | Select-Object -First 1 -ExpandProperty FullName
+        & $bridge -v monitor "=RTD(Vendor.ProgID;;ACME;LAST)" --seconds 20
+        ```
+
+        With Python (`pip install calc-rtd`):
+        `python -m calc_rtd -v "=RTD(Vendor.ProgID;;ACME;LAST)" --seconds 20`
+
+        Remove any confidential values before pasting.
+      render: text
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots of the error, antivirus warnings, other extensions installed...
