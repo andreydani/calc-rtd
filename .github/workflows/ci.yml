@@ -56,6 +56,42 @@ jobs:
       - name: Run
         run: /usr/bin/python3 tests/integration_libreoffice.py
 
+  libreoffice-windows:
+    name: End to end with LibreOffice on Windows
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
+      - run: python -m pip install . pyinstaller
+      - name: Build the win64 extension with the bundled bridge
+        run: |
+          pyinstaller --onefile --console --name calc-rtd-bridge tools/bridge_entry.py
+          python tools/build_oxt.py --bridge-exe dist/calc-rtd-bridge.exe --output oxt/calc-rtd-win64.oxt
+      - name: Install LibreOffice
+        shell: pwsh
+        run: |
+          choco install libreoffice-fresh -y --no-progress
+          $lo = "C:\Program Files\LibreOffice\program"
+          "LibreOffice " + (Get-Item "$lo\soffice.exe").VersionInfo.ProductVersion
+          & "$lo\python.exe" -c "import sys; print('bundled Python', sys.version)"
+          "LO_PROGRAM=$lo" >> $env:GITHUB_ENV
+      - name: Install the extension
+        shell: pwsh
+        run: '& "$env:LO_PROGRAM\unopkg.com" add -f oxt\calc-rtd-win64.oxt'
+      - name: Run
+        shell: pwsh
+        env:
+          CALC_RTD_BUNDLED: "1"
+        run: |
+          $env:PATH = "$env:LO_PROGRAM;$env:PATH"
+          $env:BRIDGE_PYTHON = (Get-Command python).Source
+          & "$env:LO_PROGRAM\python.exe" tests\integration_libreoffice.py
+          exit $LASTEXITCODE
+
   package:
     name: Python package and plain extension
     runs-on: ubuntu-latest
@@ -127,7 +163,7 @@ jobs:
   release:
     name: GitHub release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [test, libreoffice, package, bundle]
+    needs: [test, libreoffice, libreoffice-windows, package, bundle]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -149,7 +185,7 @@ jobs:
   pypi:
     name: Publish to PyPI
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [test, libreoffice, package, bundle]
+    needs: [test, libreoffice, libreoffice-windows, package, bundle]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

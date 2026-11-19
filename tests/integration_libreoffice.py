@@ -84,6 +84,22 @@ class Office:
             self.process.kill()
 
 
+def stop_bridge(process):
+    """Stop a bridge started by start_bridge, with any child it may have (Windows launchers)."""
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:
+        process.terminate()
+    try:
+        process.wait(10)
+    except subprocess.TimeoutExpired:
+        process.kill()
+    deadline = time.time() + 10
+    while port_open() and time.time() < deadline:
+        time.sleep(0.2)
+
+
 def start_bridge(env):
     return subprocess.Popen([os.environ.get("BRIDGE_PYTHON", sys.executable), "-m", "calc_rtd_bridge",
                              "serve", "--port", str(RTD_PORT)], env=env)
@@ -137,8 +153,7 @@ def manual_bridge_session(env):
                   any(m.get("message") == "authentication failed" for m in ops)
                   and not any(m["op"] == "update" for m in ops))
 
-        bridge.terminate()
-        bridge.wait(10)
+        stop_bridge(bridge)
         bridge = None
         time.sleep(3)
         check("offline again after the bridge stops", "offline" in office.cell("A1")[0], repr(office.cell("A1")[0]))
@@ -151,8 +166,7 @@ def manual_bridge_session(env):
         check("other cells survive removing a formula", office.cell("A2")[0] == "hello")
     finally:
         if bridge is not None:
-            bridge.terminate()
-            bridge.wait(10)
+            stop_bridge(bridge)
         office.close()
 
 
@@ -188,13 +202,20 @@ def autostart_session(env, scratch):
         office.close()
     time.sleep(8)  # CALC_RTD_IDLE_EXIT=3 plus margin
     check("auto-started bridge exits after LibreOffice closes", not port_open())
-    log = open(os.path.join(scratch, "bridge.log"), encoding="utf-8", errors="replace").read()
+    try:
+        log = open(os.path.join(scratch, "bridge.log"), encoding="utf-8", errors="replace").read()
+    except OSError:
+        log = ""
+    print("---- bridge.log (end) ----\n%s\n--------------------------" % log[-8000:])
     check("bridge.log records the start and the bridge's own output",
           "extension: starting bridge:" in log and "listening on" in log, repr(log[-300:]))
 
 
 def bridge_not_found_session(env, scratch):
     print("-- no bridge available")
+    if os.environ.get("CALC_RTD_BUNDLED") == "1":
+        print("skip  the installed extension bundles its own bridge")
+        return
     program = shutil.which("calc-rtd-bridge")
     office_dir = os.path.dirname(shutil.which("soffice") or "")
     if not program or os.path.dirname(program) == office_dir:

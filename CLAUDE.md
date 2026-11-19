@@ -71,6 +71,10 @@ End to end against LibreOffice (Linux, needs `python3-uno` and the extension ins
   `PYTHONPATH` in its own process. A pip-installed bridge inheriting it dies on start-up, so the
   extension starts the bridge without `PYTHONPATH`/`PYTHONHOME`. The end-to-end test reproduces
   it with a poisoned `PYTHONPATH`. Start attempts and bridge output go to `bridge.log`.
+- **LibreOffice's Python version changes** (3.9 in 24.8, 3.13 in 26.8). `calcrtd.py` must run
+  on all of them: never subclass `threading.Thread` (3.13's private `_handle` shadowed a method
+  of ours). `tests/test_extension_link.py` runs the add-in with UNO stubs on every CI Python, and
+  the Windows end-to-end job uses the current LibreOffice release.
 - **Extension auto-start**: while a bridge it just launched is starting, cells show `#N/A`, not
   "bridge offline" (20 s grace). The bridge exits after `--idle-exit` seconds without an
   authenticated client.
