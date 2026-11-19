@@ -188,13 +188,20 @@ def autostart_session(env, scratch):
         office.close()
     time.sleep(8)  # CALC_RTD_IDLE_EXIT=3 plus margin
     check("auto-started bridge exits after LibreOffice closes", not port_open())
-    log = open(os.path.join(scratch, "bridge.log"), encoding="utf-8", errors="replace").read()
+    try:
+        log = open(os.path.join(scratch, "bridge.log"), encoding="utf-8", errors="replace").read()
+    except OSError:
+        log = ""
+    print("---- bridge.log (end) ----\n%s\n--------------------------" % log[-3000:])
     check("bridge.log records the start and the bridge's own output",
           "extension: starting bridge:" in log and "listening on" in log, repr(log[-300:]))
 
 
 def bridge_not_found_session(env, scratch):
     print("-- no bridge available")
+    if os.environ.get("CALC_RTD_BUNDLED") == "1":
+        print("skip  the installed extension bundles its own bridge")
+        return
     program = shutil.which("calc-rtd-bridge")
     office_dir = os.path.dirname(shutil.which("soffice") or "")
     if not program or os.path.dirname(program) == office_dir:
