@@ -198,11 +198,16 @@ class RtdResult(unohelper.Base, XVolatileResult):
                 pass  # document is closing
 
 
-class BridgeLink(threading.Thread):
-    """Owns the socket to the bridge and the table of live results."""
+class BridgeLink:
+    """Owns the socket to the bridge and the table of live results.
+
+    It runs on a thread it owns rather than being a Thread subclass: Thread's own
+    private attributes change between Python versions (3.13 added ``_handle``) and
+    would shadow methods of a subclass.
+    """
 
     def __init__(self):
-        threading.Thread.__init__(self, name="calc-rtd-link", daemon=True)
+        self._thread = threading.Thread(target=self._run, name="calc-rtd-link", daemon=True)
         self._lock = threading.Lock()
         self._by_key = {}
         self._by_id = {}
@@ -250,8 +255,11 @@ class BridgeLink(threading.Thread):
         except OSError:
             pass  # the reader loop notices the broken socket and reconnects
 
+    def start(self):
+        self._thread.start()
+
     # -- link thread --------------------------------------------------------
-    def run(self):
+    def _run(self):
         while True:
             try:
                 sock = socket.create_connection((HOST, PORT), timeout=3.0)
@@ -312,9 +320,9 @@ class BridgeLink(threading.Thread):
             while b"\n" in buffer:
                 line, buffer = buffer.split(b"\n", 1)
                 if line.strip():
-                    self._handle(json.loads(line.decode("utf-8")))
+                    self._dispatch(json.loads(line.decode("utf-8")))
 
-    def _handle(self, message):
+    def _dispatch(self, message):
         op = message.get("op")
         if op == "update":
             for request_id, value in message.get("values", ()):

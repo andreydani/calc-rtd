@@ -4,7 +4,7 @@ The public, stable API is what this module exports.  Everything else in the
 package (engine, host, com_driver, ...) is internal and may change.
 """
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 from .formula import parse_formula
 from .session import RtdError, RtdSession, Subscription, Update

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.2
+
+- Fixed: with LibreOffice 26.8 (which bundles Python 3.13) every `RTD` cell showed
+  `#RTD: bridge offline`, even though the bridge was running. The extension's connection
+  thread was a `threading.Thread` subclass with a method named `_handle`, which Python 3.13 now
+  uses internally; the first message from the bridge ended the connection.
+- The extension now records unexpected errors in its connection to the bridge in `bridge.log`
+  and reconnects, instead of stopping silently.
+- CI: end-to-end test on Windows with the current LibreOffice release and the win64 extension,
+  and a test of the extension's connection code on every Python version of the matrix.
+
 ## 0.2.1
 
 - Fixed: with `calc-rtd.oxt` (the variant without an executable) the extension could not start
