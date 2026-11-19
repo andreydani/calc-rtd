@@ -92,7 +92,7 @@ body:
         With the win64 or win32 extension, the program is inside LibreOffice's profile:
 
         ```
-        $bridge = Get-ChildItem "$env:APPDATA\LibreOffice" -Recurse -Filter calc-rtd-bridge.exe | Select-Object -First 1 -ExpandProperty FullName
+        $bridge = Get-ChildItem "$env:APPDATA\LibreOffice" -Recurse -Filter calc-rtd-bridge.exe | Where-Object FullName -like '*\uno_packages\cache\*' | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
         & $bridge -v monitor "=RTD(Vendor.ProgID;;ACME;LAST)" --seconds 20
         ```
 
