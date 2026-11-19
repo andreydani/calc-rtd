@@ -192,7 +192,7 @@ def autostart_session(env, scratch):
         log = open(os.path.join(scratch, "bridge.log"), encoding="utf-8", errors="replace").read()
     except OSError:
         log = ""
-    print("---- bridge.log (end) ----\n%s\n--------------------------" % log[-3000:])
+    print("---- bridge.log (end) ----\n%s\n--------------------------" % log[-8000:])
     check("bridge.log records the start and the bridge's own output",
           "extension: starting bridge:" in log and "listening on" in log, repr(log[-300:]))
 

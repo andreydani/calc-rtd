@@ -29,6 +29,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 
 import uno  # noqa: F401  (installs the UNO import hook)
 import unohelper
@@ -87,6 +88,13 @@ def _log(handle, text):
             handle.flush()
         except OSError:
             pass
+
+
+def _log_message(text):
+    log = _open_log()
+    if log is not None:
+        _log(log, text)
+        log.close()
 
 
 def _bridge_environment():
@@ -272,6 +280,10 @@ class BridgeLink(threading.Thread):
                 self._read(sock)
             except (OSError, ValueError):
                 pass
+            except Exception:
+                # Anything else is a bug: record it, then reconnect instead of letting the
+                # thread die (which left every cell at "bridge offline" for good).
+                _log_message("unexpected error in the connection to the bridge:\n" + traceback.format_exc())
             finally:
                 with self._lock:
                     self._sock = None
